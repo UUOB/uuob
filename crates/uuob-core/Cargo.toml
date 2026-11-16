@@ -1,0 +1,28 @@
+[package]
+name = "uuob-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+iroh = "1.4"
+automerge = "0.12"
+rusqlite = { version = "0.42", features = ["bundled"] }
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+data-encoding = "2"
+sha2 = "0.10"
+hex = "0.4"
+postcard = { version = "1", features = ["alloc"] }
+gethostname = "1"
+
+[dev-dependencies]
+tempfile = "3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

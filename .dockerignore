@@ -1,0 +1,12 @@
+# Only what `docker/server.Dockerfile` needs: the sources.
+.git
+target
+node_modules
+dist
+dist-apk
+dist-mac
+shots
+**/dist
+**/src-tauri/gen/android/app/build
+# Android build folders (the Android container leaves root-owned files there)
+**/src-tauri/gen

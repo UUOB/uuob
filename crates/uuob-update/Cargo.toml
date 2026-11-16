@@ -1,0 +1,24 @@
+[package]
+name = "tauri-plugin-uuob-update"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "tauri-plugin-uuob-update"
+description = "In-app updates for one app: Tauri's updater on computers, the system installer on Android."
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+semver = "1"
+minisign-verify = "0.2"
+base64 = "0.22"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
+
+[dev-dependencies]
+minisign = "0.7"

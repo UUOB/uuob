@@ -1,0 +1,16 @@
+[package]
+name = "tauri-plugin-uuob-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "tauri-plugin-uuob-sdk"
+description = "The native half of the UUOB SDK for an app: where UUOB is, and linking to one on another device."
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["sync"] }
+uuob-core = { path = "../uuob-core" }

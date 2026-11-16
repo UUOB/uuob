@@ -1,0 +1,12 @@
+target/
+node_modules/
+dist/
+.DS_Store
+*.log
+shots/
+dist-apk/
+dist-mac/
+app/src-tauri/gen/android/app/build/
+apps/*/src-tauri/gen/android/app/build/
+.claude/
+**/src-tauri/gen/schemas/

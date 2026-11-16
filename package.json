@@ -1,0 +1,29 @@
+{
+  "name": "uuob",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:uuob && npm run build:tasks && npm run build:calendar && npm run build:photos",
+    "build:uuob": "TARGET=uuob vite build",
+    "build:tasks": "TARGET=tasks vite build",
+    "build:calendar": "TARGET=calendar vite build",
+    "build:photos": "TARGET=photos vite build",
+    "dev:uuob": "TARGET=uuob vite",
+    "dev:tasks": "TARGET=tasks vite",
+    "dev:calendar": "TARGET=calendar vite",
+    "dev:photos": "TARGET=photos vite",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-opener": "2.7.2",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@tauri-apps/cli": "2.12.4",
+    "svelte": "5.57.3",
+    "vite": "8.3.8"
+  }
+}

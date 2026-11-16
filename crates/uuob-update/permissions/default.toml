@@ -1,0 +1,3 @@
+[default]
+description = "Lets the app look for a newer version of itself and install it."
+permissions = ["allow-check", "allow-install"]

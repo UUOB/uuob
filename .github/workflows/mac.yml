@@ -1,0 +1,40 @@
+# Builds UUOB, Tasks, Calendar and Photos for macOS (Apple silicon and Intel).
+# Run it from the Actions tab or with `gh workflow run mac.yml -f apps="tasks calendar"`;
+# docker/release.sh does that when publishing a new version.
+# For each app it leaves a .dmg (first install) and a .app.tar.gz (what the
+# app's own Update button installs, see crates/uuob-update).
+name: macOS apps
+on:
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: Apps to build (uuob tasks calendar photos)
+        default: uuob tasks calendar photos
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Build the apps
+        env:
+          APPS: ${{ inputs.apps }}
+        run: |
+          bundle=target/universal-apple-darwin/release/bundle
+          mkdir -p out
+          for app in $APPS; do
+            case $app in uuob) dir=app ;; *) dir=apps/$app ;; esac
+            # Each build starts from an empty bundle folder, so its files are kept aside.
+            rm -rf "$bundle"
+            (cd "$dir" && npx tauri build --target universal-apple-darwin --bundles app,dmg)
+            cp "$bundle"/dmg/*.dmg out/
+            (cd "$bundle/macos" && for a in *.app; do COPYFILE_DISABLE=1 tar -czf "$GITHUB_WORKSPACE/out/$a.tar.gz" "$a"; done)
+          done
+          ls -la out
+      - uses: actions/upload-artifact@v7
+        with: { name: mac, path: out/*, if-no-files-found: error }

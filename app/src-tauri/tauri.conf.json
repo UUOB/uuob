@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "UUOB",
+  "version": "0.3.0",
+  "identifier": "app.uuob",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev:uuob",
+    "beforeBuildCommand": "npm run build:uuob"
+  },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "UUOB", "width": 1180, "height": 780, "minWidth": 360, "minHeight": 560, "visible": false }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
+    "macOS": { "signingIdentity": "-" }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://raw.githubusercontent.com/jachymri/uuob-releases/main/uuob.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU5QjY3MTNBQjA5NTI0QzAKUldUQUpKV3dPbkcyV2VzZU9XSWJQT29NWTR3angxNjU1VWJZazJsMi80Zjl6WDJoSWxMK0t3MlUK"
+    }
+  }
+}

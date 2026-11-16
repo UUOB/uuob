@@ -1,0 +1,3 @@
+[default]
+description = "Lets the app find UUOB on this device, or link to the user's UUOB on another device with a code."
+permissions = ["allow-port", "allow-link", "allow-removed"]
