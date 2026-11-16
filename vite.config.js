@@ -1,15 +1,12 @@
-// One config for the four frontends: TARGET=uuob | tasks | calendar | photos.
-// Each builds into its own <root>/dist for its Tauri app.
+// The front end of UUOB, the backend app, is in app/ and builds into app/dist
+// for its Tauri shell. (Tasks, Calendar and Photos have repositories of their own.)
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-const targets = { uuob: ['app', 1420], tasks: ['apps/tasks', 1421], calendar: ['apps/calendar', 1422], photos: ['apps/photos', 1423] };
-const [root, port] = targets[process.env.TARGET ?? 'uuob'];
-
 export default defineConfig({
   plugins: [svelte()],
-  root,
+  root: 'app',
   clearScreen: false,
-  server: { port, strictPort: true, fs: { allow: ['.'] } },
+  server: { port: 1420, strictPort: true, fs: { allow: ['.'] } },
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022' },
 });

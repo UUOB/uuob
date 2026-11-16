@@ -47,12 +47,14 @@ crates/uuob-cli    `uuob`: UUOB without a window, and control of a running UUOB 
 crates/uuob-sdk    the native half of the app SDK: where UUOB is, and linking to one on another device
 crates/uuob-update in-app updates, shared by the apps (not part of UUOB itself)
 app/               UUOB, the backend app (Tauri v2 + Svelte): devices, people, apps, AI access
-apps/tasks/        Tasks app (Tauri v2 + Svelte), connects to UUOB
-apps/calendar/     Calendar app (Tauri v2 + Svelte), connects to UUOB
-apps/photos/       Photos app (Tauri v2 + Svelte), connects to UUOB
 ui/                shared design system (tokens, icons), the app SDK and the connect screen
 docker/            dev + Android images and scripts (everything builds and runs in Docker)
 ```
+
+The apps have repositories of their own, each with this one as its `uuob` folder (a git submodule), which
+gives them the SDK, the connect screen, in-app updates and the build scripts below:
+[Tasks](https://github.com/UUOB/tasks), [Calendar](https://github.com/UUOB/calendar) and
+[Photos](https://github.com/UUOB/photos). An app of yours can start as a copy of one of them.
 
 ## Develop
 
@@ -63,33 +65,33 @@ docker/dev.sh cargo test --workspace                        # core + API tests
 docker/dev.sh cargo test -p uuob-core -- --ignored internet # real relays/discovery
 docker/dev.sh sh -c 'cargo build -p uuob-cli && node ui/uuob.test.mjs'   # the app SDK against a real UUOB
 docker/dev.sh sh -c 'cargo build --release -p uuob-cli && UUOB_BIN=target/release/uuob node docker/stress.mjs'   # 2,000 pictures and a 1 GB video on three devices
-docker/dev.sh sh -c 'npm install && npm run build'          # the four frontends
-docker/dev.sh cargo build -p uuob-app -p uuob-tasks -p uuob-calendar -p uuob-photos   # desktop apps (Linux)
-docker/dev.sh docker/shoot-photos.sh shots/photos           # UUOB and Photos side by side, with demo pictures
+docker/dev.sh sh -c 'npm install && npm run build'          # UUOB's front end
+docker/dev.sh cargo build -p uuob-app                       # the desktop app (Linux)
+docker/dev.sh docker/shoot-photos.sh shots/photos           # UUOB and Photos side by side, with demo pictures (needs Photos built from its repository, see the script)
 docker/dev.sh sh -c 'cargo run -p uuob-core --example seed -- target/demo && docker/shoot.sh target/demo shots/demo 1280x820 dark'
 ```
 
 ### macOS
 
-The Mac apps can't be built on Linux, so GitHub builds them (`.github/workflows/mac.yml`):
+The Mac app can't be built on Linux, so GitHub builds it (`.github/workflows/mac.yml`, the same file in every app's repository):
 
 ```bash
 gh workflow run mac.yml          # then: gh run download <run id> -n mac
 ```
 
-They aren't signed with an Apple developer account, so macOS asks for
-confirmation the first time each one is opened.
+It isn't signed with an Apple developer account, so macOS asks for
+confirmation the first time it is opened.
 
 ### Android
 
 ```bash
-for d in app apps/tasks apps/calendar; do docker/android.sh sh -c "cd $d && npx tauri android build --apk --debug --target x86_64"; done  # emulator builds
+docker/android.sh sh -c "cd app && npx tauri android build --apk --debug --target x86_64"   # an emulator build
 docker/emulator.sh start                                                                    # headless emulator (KVM)
 docker exec uuob-emu adb install -r app/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 docker/emulator.sh shot shots/phone.png
 ```
 
-`docker/android.sh docker/apk.sh tasks` leaves a signed arm64 build for real phones in `dist/` (signed with the persisted key in the `uuob-android-keys` volume, so updates install over each other). To try sync from the command line, run a headless peer: `cargo run -p uuob-core --example peer -- <dir> invite`, then enter the printed code on the phone.
+`docker/android.sh docker/apk.sh` leaves a signed arm64 build for real phones in `dist/` (signed with the persisted key in the `uuob-android-keys` volume, so updates install over each other). To try sync from the command line, run a headless peer: `cargo run -p uuob-core --example peer -- <dir> invite`, then enter the printed code on the phone.
 
 ### Starting by itself
 
@@ -144,15 +146,15 @@ docker exec uuob uuob join 42-amber-river-falcon
 Each app updates itself; UUOB is not involved. An app says where its updates
 are published in its own `tauri.conf.json` (`plugins.updater`: an address and
 the public key they are signed with), so another author publishes and signs
-their own. Our three apps share `crates/uuob-update` and the button in
+their own. UUOB, Tasks, Calendar and Photos share `crates/uuob-update` and the button in
 `ui/Update.svelte`: on computers it is Tauri's updater, on Android the same
 feed and signatures with the system installer.
 
-To publish a new version, raise `version` in the app's `tauri.conf.json`,
+To publish a new version, raise `version` in `app/src-tauri/tauri.conf.json`,
 commit, push, and run:
 
 ```bash
-docker/release.sh tasks calendar     # the apps that changed
+docker/release.sh          # in an app's repository: uuob/docker/release.sh
 ```
 
 It builds the APK here and the Mac app on GitHub, signs both with the update

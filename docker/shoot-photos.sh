@@ -2,6 +2,9 @@
 # Inside the dev container: demo data with pictures, UUOB and Photos side by
 # side, Photos connected, and screenshots of the grid and of one photo.
 #   docker/dev.sh docker/shoot-photos.sh <out-prefix>
+# Photos is built from its own repository. Build it there into this
+# repository's cache, so that its program is at target/debug/uuob-photos here:
+#   UUOB_TARGET=uuob-target uuob/docker/dev.sh cargo build
 set -euo pipefail
 OUT=$1
 DATA=target/demo-photos; PICS=target/demo-pictures
