@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><mask id="co-mu" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="#000" stroke-width="132" clip-path="url(#co-muc)"/></mask><clipPath id="co-muc"><rect x="378.0" y="606.0" width="148.0" height="148.0"/></clipPath><mask id="co-mn" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="#000" stroke-width="132" clip-path="url(#co-mnc)"/></mask><clipPath id="co-mnc"><rect x="498.0" y="270.0" width="148.0" height="148.0"/></clipPath></defs>
+  <g transform="translate(512 512) rotate(45) scale(.9) translate(-512 -512)">
+    <path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="#000" stroke-width="80" stroke-linecap="round" mask="url(#co-mu)"/>
+    <path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="#000" stroke-width="80" stroke-linecap="round" mask="url(#co-mn)"/>
+  </g>
+
+</svg>

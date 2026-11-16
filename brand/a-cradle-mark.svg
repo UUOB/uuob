@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="am-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17132e"/><stop offset="1" stop-color="#0d0b1c"/></linearGradient><radialGradient id="am-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#6d5cff" stop-opacity=".35"/><stop offset="1" stop-color="#6d5cff" stop-opacity="0"/></radialGradient><linearGradient id="am-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a493ff"/><stop offset="1" stop-color="#6d5cff"/></linearGradient><linearGradient id="am-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb15c"/><stop offset="1" stop-color="#ff5c7a"/></linearGradient></defs>
+  <path d="M318 360 V548 A194 194 0 0 0 706 548 V360" fill="none" stroke="url(#am-violet)" stroke-width="124" stroke-linecap="round"/>
+  <circle cx="512" cy="350" r="94" fill="url(#am-coral)"/>
+
+</svg>

@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import Logo from './Logo.svelte';
   import Update from './Update.svelte';
   import { uuob } from './uuob.js';
 
@@ -103,7 +104,7 @@
       <div class="pair" class:busy={state === 'waiting'}>
         <span class="tile" style="background:{app.color}"><Icon name={app.icon} size={30} stroke={2} /></span>
         <span class="link"><i></i><i></i><i></i></span>
-        <span class="logo"><span></span><span></span><span></span></span>
+        <span class="logo"><Logo size={68} radius={19} /></span>
       </div>
 
       {#if state === 'unreachable'}
@@ -147,11 +148,7 @@
   .box { width: min(420px, 100%); text-align: center; }
   .pair { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 28px; }
   .tile, .logo { width: 68px; height: 68px; border-radius: 19px; display: grid; place-items: center; color: #fff; flex: none; }
-  .logo { position: relative; background: linear-gradient(140deg, #5e8bff, #9b5cff 60%, #ff5c9b); box-shadow: 0 6px 20px rgba(110, 90, 255, 0.35); }
-  .logo span { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #fff; }
-  .logo span:nth-child(1) { left: 15px; top: 16px; }
-  .logo span:nth-child(2) { right: 15px; top: 26px; }
-  .logo span:nth-child(3) { left: 24px; bottom: 13px; }
+  .logo { box-shadow: 0 6px 20px rgba(110, 90, 255, 0.35); }
   .link { display: flex; gap: 6px; }
   .link i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
   .busy .link i { animation: blink 1.2s infinite; }

@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import Icon from '../../../ui/Icon.svelte';
+  import Logo from '../../../ui/Logo.svelte';
   import Update from '../../../ui/Update.svelte';
   import Devices from './Devices.svelte';
   import People from './People.svelte';
@@ -81,7 +82,7 @@
 <Update />
 <div class="shell">
   <nav class="rail">
-    <div class="logo" title="UUOB"><span></span><span></span><span></span></div>
+    <div class="logo" title="UUOB"><Logo size={40} radius={12} /></div>
     {#each screens as s (s.id)}
       <button class="nav" class:on={view === s.id} onclick={() => (view = s.id)}>
         <span class="tile">
@@ -127,7 +128,7 @@
         <span class="app-tile" style="background:{appColor(ask.app)}"><Icon name={appIcon(ask.app)} size={26} stroke={2} /></span>
         <span class="arrow"><Icon name="right" /></span>
         {#if ask.kind === 'connect'}
-          <span class="logo big"><span></span><span></span><span></span></span>
+          <span class="logo big"><Logo size={58} radius={16} /></span>
         {:else}
           <span class="app-tile" style="background:{appColor(ask.container)}"><Icon name={appIcon(ask.container)} size={26} stroke={2} /></span>
         {/if}
@@ -173,19 +174,8 @@
     width: 84px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0 14px;
     background: var(--sidebar); backdrop-filter: saturate(180%) blur(30px); border-right: 1px solid var(--line);
   }
-  .logo {
-    width: 40px; height: 40px; border-radius: 12px; position: relative; flex: none; margin-bottom: 14px;
-    background: linear-gradient(140deg, #5e8bff, #9b5cff 60%, #ff5c9b); box-shadow: 0 4px 14px rgba(110, 90, 255, 0.35);
-  }
-  .logo span { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
-  .logo span:nth-child(1) { left: 9px; top: 10px; }
-  .logo span:nth-child(2) { right: 9px; top: 16px; }
-  .logo span:nth-child(3) { left: 14px; bottom: 8px; }
-  .logo.big { width: 58px; height: 58px; border-radius: 16px; margin: 0; }
-  .logo.big span { width: 11px; height: 11px; }
-  .logo.big span:nth-child(1) { left: 13px; top: 14px; }
-  .logo.big span:nth-child(2) { right: 13px; top: 23px; }
-  .logo.big span:nth-child(3) { left: 21px; bottom: 11px; }
+  .logo { flex: none; margin-bottom: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(110, 90, 255, 0.35); }
+  .logo.big { margin: 0; border-radius: 16px; }
   .nav {
     display: flex; flex-direction: column; align-items: center; gap: 4px; width: 76px; border: 0; background: transparent;
     padding: 6px 0; border-radius: 14px; cursor: pointer; color: var(--text-2); transition: color 0.16s;
