@@ -4,10 +4,11 @@
   feed.py <repo> <app> <Name> <version> <dist>   the app's update feed, <dist>/releases/<app>.json,
                                                  and its Homebrew cask, <dist>/releases/Casks/
   feed.py <repo> --page <checkout>               the downloads page, README.md, from the feeds
+  feed.py <repo> --rows <checkout>               only the table of versions on that page
 (The F-Droid repo is written by docker/fdroid.sh.)
 
 The feed is the one Tauri's updater reads, with Android next to the Mac
-(see crates/uuob-update). Called by docker/release.sh.
+(see crates/uuob-update). Called by release.sh.
 """
 import datetime
 import hashlib
@@ -62,7 +63,9 @@ end
 ''')
 
 
-def page(checkout):
+def page(checkout, rows_only=False):
+    """The downloads page. An app's release refreshes only the table of
+    versions: the rest of the page is UUOB's to write."""
     checkout = pathlib.Path(checkout)
     rows = []
     for app, (name, _) in APPS.items():
@@ -73,6 +76,12 @@ def page(checkout):
         apk = f["platforms"]["android-aarch64"]["url"]
         dmg = f["platforms"]["darwin-aarch64"]["url"].replace(".app.tar.gz", ".dmg")
         rows.append(f"| **{name}** | {f['version']} | [Download for Android]({apk}) | [Download for Mac]({dmg}) |")
+    if rows_only:
+        old = (checkout / "README.md").read_text().split("\n")
+        table = [i for i, line in enumerate(old) if line.startswith("| **")]
+        old[table[0] : table[-1] + 1] = rows
+        (checkout / "README.md").write_text("\n".join(old))
+        return
     user, name = repo.split("/")
     fdroid = f"https://{user}.github.io/{name}/fdroid/repo?fingerprint={FDROID_KEY}"
     uuob = json.loads((checkout / "uuob.json").read_text())["version"]
@@ -149,7 +158,7 @@ Version 0.3 changes the code that connects an app (words instead of six digits),
 apps together. Devices on 0.3 and 0.2 sync with each other; devices on 0.1 do not sync with newer ones.
 """
 
-if sys.argv[2] == "--page":
-    page(sys.argv[3])
+if sys.argv[2] in ("--page", "--rows"):
+    page(sys.argv[3], rows_only=sys.argv[2] == "--rows")
 else:
     feed(*sys.argv[2:6])

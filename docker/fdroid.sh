@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Refresh the F-Droid repo of the public downloads repo, so the apps can also be
 # installed and updated with an F-Droid app (docker/release.sh runs this last):
-#   docker/fdroid.sh
+#   docker/fdroid.sh            (uuob/docker/fdroid.sh in an app's repository)
 # It takes the Android version each app's feed points to, writes a signed
 # F-Droid index for them and puts both on the gh-pages branch, which GitHub
 # serves at https://<user>.github.io/<repo>/fdroid/repo. The branch is replaced
@@ -9,11 +9,13 @@
 # The repo's signing key is created on first use and kept, like the other keys,
 # only in the uuob-android-keys Docker volume (/root/.android/fdroid).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(git -C "$HERE" rev-parse --show-superproject-working-tree)"
+cd "${ROOT:-$(git -C "$HERE" rev-parse --show-toplevel)}"
 REPO=${UUOB_RELEASES:-jachymri/uuob-releases}
 URL=https://${REPO%%/*}.github.io/${REPO##*/}/fdroid/repo
 IMAGE=uuob-fdroid:1
-docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -t "$IMAGE" -f docker/fdroid.Dockerfile docker
+docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -t "$IMAGE" -f "$HERE/fdroid.Dockerfile" "$HERE"
 
 rm -rf dist/pages dist/fdroid && mkdir -p dist/fdroid/repo
 gh repo clone "$REPO" dist/pages -- -q

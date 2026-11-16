@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Inside the Android container: build one app's APK for one kind of phone and sign it.
-#   docker/android.sh docker/apk.sh <uuob|tasks|calendar|photos> [aarch64|x86_64]
+# Inside the Android container: build this repository's app (in `app/`) as an
+# APK for one kind of phone and sign it.
+#   docker/android.sh docker/apk.sh [aarch64|x86_64]
+# (in an app's repository: uuob/docker/android.sh uuob/docker/apk.sh)
 # Leaves dist/<App>-<version>-<arch>.apk and, next to it, its update signature (.sig).
 # Two keys are used, both kept in the uuob-android-keys volume: Android's own
 # (an update must be signed like the installed app) and the update key (the app
 # checks it before installing; see crates/uuob-update).
 set -euo pipefail
-app=$1 arch=${2:-aarch64}
-case $app in uuob) dir=app name=UUOB ;; tasks) dir=apps/tasks name=Tasks ;; calendar) dir=apps/calendar name=Calendar ;; photos) dir=apps/photos name=Photos ;; *) echo "unknown app: $app"; exit 1 ;; esac
+arch=${1:-aarch64} dir=app
+name=$(python3 -c 'import json; print(json.load(open("app/src-tauri/tauri.conf.json"))["productName"])')
 tools=$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)
 
 # Tauri writes TauriActivity.kt into the app only when its own build step runs,
-# and with one build cache for three apps it doesn't run again for an app that
+# and with one build cache for several apps it doesn't run again for an app that
 # was never built in this checkout. Make it run.
 find "$dir/src-tauri/gen/android/app/src/main/java" -name TauriActivity.kt | grep -q . ||
   find target -maxdepth 4 -path '*/build/tauri-[0-9a-f]*' -prune -exec rm -rf {} + 2>/dev/null || true
@@ -28,5 +30,5 @@ mkdir -p dist
   --ks-key-alias androiddebugkey --out "$out" /tmp/aligned.apk
 rm -f "$out.idsig"
 npx tauri signer sign -f /root/.android/uuob-update.key -p "" "$out" >/dev/null
-chown -R 1000:1000 dist "$dir" crates/uuob-update node_modules 2>/dev/null || true
+chown -R 1000:1000 dist "$dir" "$(dirname "$0")/../crates/uuob-update" node_modules 2>/dev/null || true
 echo "$out"

@@ -7,7 +7,9 @@
 # A second one next to it: UUOB_EMU=uuob-emu2 UUOB_EMU_NET=bridge docker/emulator.sh start
 # Short on disk: UUOB_EMU_DATA=2G gives the phone a smaller storage (the default needs ~7 GB free).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(git -C "$HERE" rev-parse --show-superproject-working-tree)" # an app's repository, if run from its `uuob` folder
+ROOT="${ROOT:-$(git -C "$HERE" rev-parse --show-toplevel)}"
 NAME=${UUOB_EMU:-uuob-emu} NET=${UUOB_EMU_NET:-host}
 case "${1:-}" in
   start)
