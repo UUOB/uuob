@@ -97,6 +97,8 @@ UUOB is your own backend: it runs on your devices, links them into one
 end-to-end encrypted network and keeps your apps' data there. Tasks,
 Calendar and Photos are apps that use it.
 
+All of it is open source: [github.com/UUOB](https://github.com/UUOB).
+
 | App | Version | Android | Mac |
 | --- | --- | --- | --- |
 {rows}
