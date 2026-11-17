@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs></defs>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="#000"/>
+  <path d="M453.8 403.2 L340.3 612.3" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="397.0" cy="507.8" r="34" fill="#fff"/>
+  <path d="M570.2 403.2 L681.8 608.8" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="626.0" cy="506.0" r="34" fill="#fff"/>
+  <path d="M402.0 716.0 L618.0 716.0" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="510.0" cy="716.0" r="34" fill="#fff"/>
+  <rect x="440.0" y="234.0" width="144.0" height="96.0" rx="14.0" fill="none" stroke="#fff" stroke-width="26.0"/><path d="M414.0 354.0 L610.0 354.0" stroke="#fff" stroke-width="26.0" stroke-linecap="round"/>
+  <rect x="240.0" y="636.0" width="88.0" height="160.0" rx="20.0" fill="none" stroke="#fff" stroke-width="26.0"/><circle cx="284.0" cy="762.0" r="11.0" fill="#fff"/>
+  <rect x="664.0" y="644.0" width="152.0" height="62.0" rx="14.0" fill="none" stroke="#fff" stroke-width="26.0"/><rect x="664.0" y="726.0" width="152.0" height="62.0" rx="14.0" fill="none" stroke="#fff" stroke-width="26.0"/><circle cx="782.0" cy="675.0" r="9.0" fill="#fff"/><circle cx="782.0" cy="757.0" r="9.0" fill="#fff"/>
+
+</svg>

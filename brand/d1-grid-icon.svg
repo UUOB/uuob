@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="di-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17132e"/><stop offset="1" stop-color="#0d0b1c"/></linearGradient><radialGradient id="di-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#6d5cff" stop-opacity=".35"/><stop offset="1" stop-color="#6d5cff" stop-opacity="0"/></radialGradient><linearGradient id="di-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a493ff"/><stop offset="1" stop-color="#6d5cff"/></linearGradient><linearGradient id="di-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb15c"/><stop offset="1" stop-color="#ff5c7a"/></linearGradient></defs>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#di-ink)"/>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#di-glow)"/>
+  <path d="M260.0 260.0 V360.0 A100.0 100.0 0 0 0 460.0 360.0 V260.0" fill="none" stroke="#f5f5f7" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M564.0 260.0 V360.0 A100.0 100.0 0 0 0 764.0 360.0 V260.0" fill="none" stroke="#f5f5f7" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="360.0" cy="664.0" r="128.0" fill="url(#di-coral)"/>
+  <path d="M564.0 564.0 V764.0 H711.0 A53.0 53.0 0 0 0 711.0 658.0 H564.0 M564.0 658.0 H699.0 A47.0 47.0 0 0 0 699.0 564.0 H564.0" fill="none" stroke="#f5f5f7" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

@@ -174,7 +174,7 @@
     width: 84px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0 14px;
     background: var(--sidebar); backdrop-filter: saturate(180%) blur(30px); border-right: 1px solid var(--line);
   }
-  .logo { flex: none; margin-bottom: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(110, 90, 255, 0.35); }
+  .logo { flex: none; margin-bottom: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
   .logo.big { margin: 0; border-radius: 16px; }
   .nav {
     display: flex; flex-direction: column; align-items: center; gap: 4px; width: 76px; border: 0; background: transparent;

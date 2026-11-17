@@ -1,10 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2008 640">
-  <defs><linearGradient id="lk-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17132e"/><stop offset="1" stop-color="#0d0b1c"/></linearGradient><radialGradient id="lk-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#6d5cff" stop-opacity=".35"/><stop offset="1" stop-color="#6d5cff" stop-opacity="0"/></radialGradient><linearGradient id="lk-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a493ff"/><stop offset="1" stop-color="#6d5cff"/></linearGradient><linearGradient id="lk-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb15c"/><stop offset="1" stop-color="#ff5c7a"/></linearGradient><mask id="lk-mu" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="#000" stroke-width="132" clip-path="url(#lk-muc)"/></mask><clipPath id="lk-muc"><rect x="378.0" y="606.0" width="148.0" height="148.0"/></clipPath><mask id="lk-mn" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="#000" stroke-width="132" clip-path="url(#lk-mnc)"/></mask><clipPath id="lk-mnc"><rect x="498.0" y="270.0" width="148.0" height="148.0"/></clipPath></defs>
-  <g transform="translate(-94 -24) scale(.72)">
-  <g transform="translate(512 512) rotate(45) scale(.9) translate(-512 -512)">
-    <path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="url(#lk-violet)" stroke-width="80" stroke-linecap="round" mask="url(#lk-mu)"/>
-    <path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="url(#lk-coral)" stroke-width="80" stroke-linecap="round" mask="url(#lk-mn)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2108 640">
+  <defs></defs>
+  <g transform="translate(-72 -20) scale(.7)">
+  <path d="M430.5 429.3 L349.1 579.2" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="389.8" cy="504.3" r="34" fill="#fff"/>
+  <path d="M593.5 429.3 L672.2 574.3" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="632.8" cy="501.8" r="34" fill="#fff"/>
+  <path d="M435.5 724.4 L582.9 724.4" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="509.2" cy="724.4" r="34" fill="#fff"/>
+  <rect x="411.2" y="192.4" width="201.6" height="134.4" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><path d="M374.8 360.4 L649.2 360.4" stroke="#fff" stroke-width="29.9" stroke-linecap="round"/>
+  <rect x="208.7" y="612.4" width="123.2" height="224.0" rx="28.0" fill="none" stroke="#fff" stroke-width="29.9"/><circle cx="270.3" cy="788.8" r="15.4" fill="#fff"/>
+  <rect x="647.3" y="623.6" width="212.8" height="86.8" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><rect x="647.3" y="738.4" width="212.8" height="86.8" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><circle cx="812.5" cy="667.0" r="12.6" fill="#fff"/><circle cx="812.5" cy="781.8" r="12.6" fill="#fff"/>
   </g>
-  </g>
-  <g transform="translate(580 60)"><path d="M32 252 V370 A118 118 0 0 0 268 370 M268 252 V488 M388 252 V370 A118 118 0 0 0 624 370 M624 252 V488 M1100 82 V488" fill="none" stroke="#f5f5f7" stroke-width="64" stroke-linecap="round"/><circle cx="1218" cy="370" r="118" fill="none" stroke="#f5f5f7" stroke-width="64"/><circle cx="862" cy="370" r="150" fill="url(#lk-coral)"/></g>
+  <g transform="translate(680 60)"><path d="M32 252 V370 A118 118 0 0 0 268 370 M268 252 V488 M388 252 V370 A118 118 0 0 0 624 370 M624 252 V488 M1100 82 V488" fill="none" stroke="#fff" stroke-width="64" stroke-linecap="round"/><circle cx="1218" cy="370" r="118" fill="none" stroke="#fff" stroke-width="64"/><circle cx="862" cy="370" r="150" fill="#fff"/></g>
 </svg>

@@ -1,10 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <defs><linearGradient id="ci-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17132e"/><stop offset="1" stop-color="#0d0b1c"/></linearGradient><radialGradient id="ci-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#6d5cff" stop-opacity=".35"/><stop offset="1" stop-color="#6d5cff" stop-opacity="0"/></radialGradient><linearGradient id="ci-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a493ff"/><stop offset="1" stop-color="#6d5cff"/></linearGradient><linearGradient id="ci-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb15c"/><stop offset="1" stop-color="#ff5c7a"/></linearGradient><mask id="ci-mu" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="#000" stroke-width="132" clip-path="url(#ci-muc)"/></mask><clipPath id="ci-muc"><rect x="378.0" y="606.0" width="148.0" height="148.0"/></clipPath><mask id="ci-mn" maskUnits="userSpaceOnUse" x="-512" y="-512" width="2048" height="2048"><rect x="-512" y="-512" width="2048" height="2048" fill="#fff"/><path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="#000" stroke-width="132" clip-path="url(#ci-mnc)"/></mask><clipPath id="ci-mnc"><rect x="498.0" y="270.0" width="148.0" height="148.0"/></clipPath></defs>
-  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#ci-ink)"/>
-  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#ci-glow)"/>
-  <g transform="translate(512 512) rotate(45) scale(.9) translate(-512 -512)">
-    <path d="M332 260 V560 A120 120 0 0 0 572 560 V260" fill="none" stroke="url(#ci-violet)" stroke-width="80" stroke-linecap="round" mask="url(#ci-mu)"/>
-    <path d="M452 764 V464 A120 120 0 0 1 692 464 V764" fill="none" stroke="url(#ci-coral)" stroke-width="80" stroke-linecap="round" mask="url(#ci-mn)"/>
-  </g>
+  <defs></defs>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="#000"/>
+  <path d="M430.5 429.3 L349.1 579.2" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="389.8" cy="504.3" r="34" fill="#fff"/>
+  <path d="M593.5 429.3 L672.2 574.3" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="632.8" cy="501.8" r="34" fill="#fff"/>
+  <path d="M435.5 724.4 L582.9 724.4" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="509.2" cy="724.4" r="34" fill="#fff"/>
+  <rect x="411.2" y="192.4" width="201.6" height="134.4" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><path d="M374.8 360.4 L649.2 360.4" stroke="#fff" stroke-width="29.9" stroke-linecap="round"/>
+  <rect x="208.7" y="612.4" width="123.2" height="224.0" rx="28.0" fill="none" stroke="#fff" stroke-width="29.9"/><circle cx="270.3" cy="788.8" r="15.4" fill="#fff"/>
+  <rect x="647.3" y="623.6" width="212.8" height="86.8" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><rect x="647.3" y="738.4" width="212.8" height="86.8" rx="19.6" fill="none" stroke="#fff" stroke-width="29.9"/><circle cx="812.5" cy="667.0" r="12.6" fill="#fff"/><circle cx="812.5" cy="781.8" r="12.6" fill="#fff"/>
 
 </svg>

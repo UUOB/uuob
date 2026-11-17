@@ -148,7 +148,7 @@
   .box { width: min(420px, 100%); text-align: center; }
   .pair { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 28px; }
   .tile, .logo { width: 68px; height: 68px; border-radius: 19px; display: grid; place-items: center; color: #fff; flex: none; }
-  .logo { box-shadow: 0 6px 20px rgba(110, 90, 255, 0.35); }
+  .logo { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
   .link { display: flex; gap: 6px; }
   .link i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
   .busy .link i { animation: blink 1.2s infinite; }

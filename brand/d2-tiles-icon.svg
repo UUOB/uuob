@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="di-ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17132e"/><stop offset="1" stop-color="#0d0b1c"/></linearGradient><radialGradient id="di-glow" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#6d5cff" stop-opacity=".35"/><stop offset="1" stop-color="#6d5cff" stop-opacity="0"/></radialGradient><linearGradient id="di-violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a493ff"/><stop offset="1" stop-color="#6d5cff"/></linearGradient><linearGradient id="di-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb15c"/><stop offset="1" stop-color="#ff5c7a"/></linearGradient></defs>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#di-ink)"/>
+  <rect x="64" y="64" width="896" height="896" rx="210" fill="url(#di-glow)"/>
+  <rect x="212.0" y="212.0" width="286.0" height="286.0" rx="60" fill="url(#di-violet)"/>
+  <path d="M282.0 282.0 V355.0 A73.0 73.0 0 0 0 428.0 355.0 V282.0" fill="none" stroke="#17132e" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="526.0" y="212.0" width="286.0" height="286.0" rx="60" fill="url(#di-violet)"/>
+  <path d="M596.0 282.0 V355.0 A73.0 73.0 0 0 0 742.0 355.0 V282.0" fill="none" stroke="#17132e" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="212.0" y="526.0" width="286.0" height="286.0" rx="60" fill="url(#di-coral)"/>
+  <circle cx="355.0" cy="669.0" r="73.0" fill="none" stroke="#17132e" stroke-width="40"/>
+  <rect x="526.0" y="526.0" width="286.0" height="286.0" rx="60" fill="#f5f5f7"/>
+  <path d="M596.0 596.0 V742.0 H703.3 A38.7 38.7 0 0 0 703.3 664.6 H596.0 M596.0 664.6 H692.9 A34.3 34.3 0 0 0 692.9 596.0 H596.0" fill="none" stroke="#17132e" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>
