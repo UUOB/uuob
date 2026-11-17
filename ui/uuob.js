@@ -42,6 +42,9 @@ let ready = shell('port').then(at).catch(() => {});
 const listeners = new Set(); // (containerId | '*') => void
 const stateListeners = new Set(); // ('connected' | 'disconnected' | 'unreachable') => void
 const askListeners = new Set(); // (waiting: boolean) => void
+const settingsListeners = new Set(); // (settings) => void, for a change made here
+const SETTINGS = { hour12: false, sunday_first: false };
+let settingsChanges = 0; // changes made here, so an older read doesn't undo one
 let remote = false; // UUOB is on another device
 
 // A question to the user is answered in UUOB. When UUOB is on another
@@ -368,6 +371,39 @@ export const uuob = {
         return uuob.onChange((c) => (c === '*' || c === own()) && load());
       },
     };
+  },
+
+  /** Choices for all of the user's apps, on every device:
+   *  { hour12: false, sunday_first: false } until changed. Each app shows them
+   *  in its Settings (ui/Settings.svelte); a change in one reaches all. */
+  settings: {
+    get: () =>
+      call('settings').then(
+        (s) => (cache.set('', 'settings', s), s),
+        () => ({ ...SETTINGS, ...cache.get('', 'settings') }), // UUOB away, or too old to know them
+      ),
+    /** Changes some of them, e.g. `{ hour12: true }`; shown at once. */
+    set(change) {
+      const next = { ...SETTINGS, ...cache.get('', 'settings'), ...change };
+      settingsChanges++;
+      cache.set('', 'settings', next);
+      settingsListeners.forEach((f) => f(next));
+      return call('set_settings', change).catch(() => next);
+    },
+    /** Calls `fn(settings)` now and whenever they change, in any app. */
+    subscribe(fn) {
+      fn({ ...SETTINGS, ...cache.get('', 'settings') });
+      settingsListeners.add(fn);
+      // A read that set off before a change made here would undo it on screen;
+      // UUOB announces the change, and the read after that has it.
+      const load = () => {
+        const at = settingsChanges;
+        return this.get().then((s) => at === settingsChanges && fn(s));
+      };
+      load();
+      const off = uuob.onChange((c) => c === '*' && load());
+      return () => (off(), settingsListeners.delete(fn));
+    },
   },
 
   /** This app's containers: its first, private one (`main`) plus one per list,

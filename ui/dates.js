@@ -29,9 +29,32 @@ export function friendly(s) {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
+// How times are written: the user's choice for all apps (see Settings.svelte,
+// which passes its reactive settings here, so a change shows at once).
+let clock = { hour12: false };
+export const useClock = (settings) => (clock = settings);
+
+/** "14:30", or "2:30 PM" when the user chose AM/PM. */
 export function friendlyTime(t) {
   const [h, m] = t.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (!clock.hour12) return `${h}:${pad(m)}`;
+  return `${h % 12 || 12}:${pad(m)} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/**
+ * A time as typed: "14:30", "1430", "9", "9.15", "2:30 pm", "2pm" -> "HH:MM",
+ * or null if it isn't one.
+ */
+export function parseTime(text) {
+  const m = String(text ?? '').trim().toLowerCase().match(/^(\d{1,2})(?:[:.h ]?(\d{2}))?\s*(am|pm|a|p)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (m[3]) {
+    if (h < 1 || h > 12) return null;
+    h = (h % 12) + (m[3].startsWith('p') ? 12 : 0);
+  }
+  return h <= 23 && min <= 59 ? `${pad(h)}:${pad(min)}` : null;
 }
 
 /**

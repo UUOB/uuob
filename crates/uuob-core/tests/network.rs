@@ -1266,3 +1266,44 @@ async fn a_question_is_answered_on_any_device() {
     asking.abort();
     eventually("withdrawn", || a.asks().is_empty()).await;
 }
+
+#[tokio::test]
+async fn settings_apply_to_every_app_and_device() {
+    let net = MemoryLookup::new();
+    let (da, db) = (TempDir::new().unwrap(), TempDir::new().unwrap());
+    let a = node(&da, "Laptop", &net).await;
+    let b = node(&db, "Phone", &net).await;
+    a.install_app(&manifest("tasks", "Tasks")).unwrap();
+    b.install_app(&manifest("calendar", "Calendar")).unwrap();
+    pair(&a, &b).await;
+    let cal = Client::App("calendar".into());
+
+    // 24-hour time and Monday first, until someone chooses otherwise.
+    assert_eq!(a.call(&tasks(), "settings", json!({})).await.unwrap(), json!({"hour12": false, "sunday_first": false}));
+    // Tasks on the laptop switches to AM/PM: Calendar on the phone sees it.
+    a.call(&tasks(), "set_settings", json!({"hour12": true})).await.unwrap();
+    eventually("the phone gets the time format", || {
+        at_once(b.call(&cal, "settings", json!({})))["hour12"] == json!(true)
+    })
+    .await;
+    // Two devices changing different choices at once keep both.
+    b.call(&cal, "set_settings", json!({"sunday_first": true})).await.unwrap();
+    eventually("both choices on both devices", || {
+        let want = json!({"hour12": true, "sunday_first": true});
+        at_once(a.call(&tasks(), "settings", json!({}))) == want && at_once(b.call(&cal, "settings", json!({}))) == want
+    })
+    .await;
+    // Only known choices, with the right type.
+    assert!(a.call(&tasks(), "set_settings", json!({"theme": "pink"})).await.is_err());
+    assert!(a.call(&tasks(), "set_settings", json!({"hour12": "yes"})).await.is_err());
+}
+
+/// `call` is async but answers settings right away; `eventually` takes a plain closure.
+fn at_once<F: std::future::Future<Output = Result<serde_json::Value>>>(f: F) -> serde_json::Value {
+    let mut f = std::pin::pin!(f);
+    let waker = std::task::Waker::noop();
+    match f.as_mut().poll(&mut std::task::Context::from_waker(waker)) {
+        std::task::Poll::Ready(r) => r.unwrap(),
+        std::task::Poll::Pending => panic!("settings should answer at once"),
+    }
+}

@@ -90,5 +90,16 @@ assert.ok(!now.t3, 'a change to a record deleted meanwhile is dropped');
 await until('the app shows the same', () => JSON.stringify(titles()) === JSON.stringify(['made while away', 'renamed elsewhere']));
 assert.equal(state, 'connected');
 
-console.log('ok: the SDK reads, writes, and sends later what was changed while UUOB was away');
+// Settings for all apps: 24-hour time until changed; a change reaches the other device.
+let settings;
+const offSettings = uuob.settings.subscribe((s) => (settings = s));
+await until('settings arrive', () => settings && settings.hour12 === false && settings.sunday_first === false);
+await uuob.settings.set({ hour12: true });
+assert.equal(settings.hour12, true, 'shown at once');
+await until('the other device has it', () => JSON.parse(cli(B, 'call', 'settings', '{}')).hour12 === true);
+cli(B, 'call', 'set_settings', JSON.stringify({ sunday_first: true }));
+await until('a change made elsewhere reaches the app', () => settings.sunday_first === true && settings.hour12 === true);
+offSettings();
+
+console.log('ok: the SDK reads, writes, and sends later what was changed while UUOB was away; settings reach every app');
 process.exit(0);

@@ -201,6 +201,29 @@ pub fn set_network(d: &mut AutoCommit, info: &NetworkInfo) -> Result<()> {
     doc::set_record(d, &ROOT, "network", &map)
 }
 
+/// Choices that apply to all of the user's apps on all of their devices.
+/// Every field is optional in the document: a device on an older version
+/// ignores this record, and a missing choice means the default.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Settings {
+    /// Times as "2:30 PM" instead of "14:30".
+    #[serde(default)]
+    pub hour12: bool,
+    /// Weeks start on Sunday instead of Monday.
+    #[serde(default)]
+    pub sunday_first: bool,
+}
+
+pub fn settings(d: &AutoCommit) -> Settings {
+    doc::get_map(d, &ROOT, "settings").and_then(|o| serde_json::from_value(doc::to_json(d, &o)).ok()).unwrap_or_default()
+}
+
+pub fn set_settings(d: &mut AutoCommit, s: &Settings) -> Result<()> {
+    let json = serde_json::to_value(s).map_err(anyhow::Error::from)?;
+    let Json::Object(map) = json else { unreachable!() };
+    doc::set_record(d, &ROOT, "settings", &map)
+}
+
 pub fn members(d: &AutoCommit) -> BTreeMap<String, Member> {
     read_prefix(d, "member")
 }

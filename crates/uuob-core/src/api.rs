@@ -26,6 +26,8 @@ pub const DATA_METHODS: &[&str] = &[
     "files",
     "delete_file",
     "keep",
+    "settings",
+    "set_settings",
 ];
 
 #[derive(Deserialize)]
@@ -80,6 +82,22 @@ impl Node {
                 ok(self.list(client, &container_of(&r)?, &r.collection)?)
             }
             "containers" => ok(self.containers(client)?),
+            // Choices for all apps (time format, first day of the week). Any app
+            // may read and change them: the user changes them in whichever app.
+            "settings" => ok(self.read_net(crate::net::settings)),
+            "set_settings" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct P { hour12: Option<bool>, sunday_first: Option<bool> }
+                let P { hour12, sunday_first } = params(p)?;
+                ok(self.write_net(|d| {
+                    let mut s = crate::net::settings(d);
+                    if let Some(v) = hour12 { s.hour12 = v; }
+                    if let Some(v) = sunday_first { s.sunday_first = v; }
+                    crate::net::set_settings(d, &s)?;
+                    Ok(s)
+                })?)
+            }
             // How much of one of its containers this device keeps.
             "keep" => {
                 #[derive(Deserialize)]
