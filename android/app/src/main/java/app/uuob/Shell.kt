@@ -185,8 +185,9 @@ private fun AskSheet(shell: Shell, ask: JSONObject) {
     shell.tick++
   }
   val connect = ask.optString("kind") == "connect"
-  ModalBottomSheet(onDismissRequest = { answer(false) }, sheetState = state) {
+  ModalBottomSheet(onDismissRequest = { answer(false) }, sheetState = state, dragHandle = null) {
     SheetBody {
+      Spacer(Modifier.height(32.dp))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         AppTile(ask.optString("app"), 58.dp)
         Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.padding(horizontal = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

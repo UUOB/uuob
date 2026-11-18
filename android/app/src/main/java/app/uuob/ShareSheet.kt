@@ -134,7 +134,7 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
               leadingContent = { Avatar(p.optString("name"), 36.dp) },
               headlineContent = { Text(p.optString("name")) },
               supportingContent = {
-                Choice(LEVELS, level, Modifier.padding(top = 8.dp)) { v ->
+                Choice(LEVELS, level, Modifier.fillMaxWidth().padding(top = 8.dp)) { v ->
                   shell.act {
                     Core.call("share_with", params("container" to container, "person" to p.optString("id"), "access" to v.takeIf { it != "none" }))
                     shell.refresh()

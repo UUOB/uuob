@@ -98,18 +98,11 @@ fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
                 }
               }
             },
-            headlineContent = {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(d.optString("name"), Modifier.weight(1f, fill = false))
-                if (self) Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape, modifier = Modifier.padding(start = 8.dp)) {
-                  Text("This device", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-              }
-            },
+            headlineContent = { Text(d.optString("name")) },
             supportingContent = {
               Row(verticalAlignment = Alignment.CenterVertically) {
                 Dot(d.optBoolean("online"))
-                Text("  ${if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}")
+                Text("  ${if (self) "This device" else if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}")
               }
             },
             trailingContent = {

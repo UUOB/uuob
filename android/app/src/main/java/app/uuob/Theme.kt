@@ -13,14 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-/** Colours that mean the same everywhere: online, the apps' own colours. */
+/** Colours that mean the same everywhere: online, waiting, and the apps' tiles. */
 object Tint {
   val ok = Color(0xFF30D158)
   val offline = Color(0xFF8E8E93)
-  val tasks = Color(0xFF0A84FF)
-  val calendar = Color(0xFFFF453A)
-  val photos = Color(0xFFFF9F0A)
-  val other = Color(0xFFBF5AF2)
+  val waiting = Color(0xFFFF9F0A)
+  val apps = listOf(0xFF0A84FF, 0xFFFF453A, 0xFFFF9F0A, 0xFF30D158, 0xFFBF5AF2, 0xFFFF375F, 0xFF40C8E0, 0xFF5E5CE6).map { Color(it) }
 }
 
 /** Material You: the phone's own colours (Android 12+), else UUOB's. Follows dark mode. */

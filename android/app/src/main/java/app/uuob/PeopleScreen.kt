@@ -141,20 +141,16 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit) {
                 colors = clearItem(),
                 leadingContent = { AppTile(s.optString("app"), 36.dp) },
                 headlineContent = { Text(s.optString("name")) },
-                supportingContent = {
-                  Column {
-                    Text(s.optString("app_name"))
-                    Choice(listOf("read" to "Can view", "write" to "Can edit"), s.optString("access"), Modifier.padding(top = 8.dp)) { v ->
-                      act("share_with", params("container" to container, "person" to p.optString("id"), "access" to v))
-                    }
-                  }
-                },
+                supportingContent = { Text(s.optString("app_name")) },
                 trailingContent = {
                   IconButton(onClick = {
                     act("share_with", params("container" to container, "person" to p.optString("id"), "access" to null), "Stopped sharing “${s.optString("name")}” with $name")
                   }) { Icon(Icons.Rounded.Close, "Stop sharing") }
                 },
               )
+              Choice(listOf("read" to "Can view", "write" to "Can edit"), s.optString("access"), Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) { v ->
+                act("share_with", params("container" to container, "person" to p.optString("id"), "access" to v))
+              }
             }
           }
           if (receiving.isEmpty() && sharing.isEmpty()) {

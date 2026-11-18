@@ -1,6 +1,7 @@
 package app.uuob
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -60,7 +61,7 @@ fun AiScreen(shell: Shell, top: @Composable () -> Unit) {
             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
             Column(Modifier.padding(16.dp)) {
               Text(appName(k), style = MaterialTheme.typography.titleSmall)
-              Choice(listOf("none" to "No access", "read" to "Read", "write" to "Read & write"), level(cid, k), Modifier.padding(top = 8.dp)) { v ->
+              Choice(listOf("none" to "No access", "read" to "Read", "write" to "Read & write"), level(cid, k), Modifier.fillMaxWidth().padding(top = 8.dp)) { v ->
                 shell.act {
                   Core.call("set_grant", params("client" to "ai:$cid", "app" to k.optString("owner_app"), "access" to v.takeIf { it != "none" }))
                   load()

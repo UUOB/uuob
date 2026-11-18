@@ -23,11 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.Photo
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,6 +58,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -108,14 +104,13 @@ fun Empty(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, 
 @Composable
 fun Dot(on: Boolean) = Box(Modifier.size(8.dp).clip(CircleShape).background(if (on) Tint.ok else Tint.offline))
 
-/** How known apps look. Unknown apps get a neutral tile. */
-fun appColor(app: String) = when (app) { "tasks" -> Tint.tasks; "calendar" -> Tint.calendar; "photos" -> Tint.photos; else -> Tint.other }
-fun appIcon(app: String) = when (app) { "tasks" -> Icons.Rounded.Checklist; "calendar" -> Icons.Rounded.CalendarMonth; "photos" -> Icons.Rounded.Photo; else -> Icons.Rounded.Storage }
+/** Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular. */
+fun appColor(app: String) = Tint.apps[Math.floorMod(app.hashCode(), Tint.apps.size)]
 
 @Composable
 fun AppTile(app: String, size: Dp = 44.dp) =
   Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(appColor(app)), contentAlignment = Alignment.Center) {
-    Icon(appIcon(app), null, Modifier.size(size * 0.52f), tint = Color.White)
+    Text(initial(app), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.46f).sp)
   }
 
 fun initial(name: String?) = name?.trim()?.firstOrNull()?.uppercase() ?: "?"
@@ -131,8 +126,9 @@ fun Avatar(name: String?, size: Dp = 44.dp, mine: Boolean = false) =
 fun Choice(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
   SingleChoiceSegmentedButtonRow(modifier) {
     options.forEachIndexed { i, (value, label) ->
-      SegmentedButton(selected = value == selected, onClick = { onSelect(value) }, shape = SegmentedButtonDefaults.itemShape(i, options.size)) {
-        Text(label, maxLines = 1)
+      // No tick: the filled segment already says which one is chosen, and the label needs the room.
+      SegmentedButton(selected = value == selected, onClick = { onSelect(value) }, shape = SegmentedButtonDefaults.itemShape(i, options.size), icon = {}) {
+        Text(label, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
       }
     }
   }

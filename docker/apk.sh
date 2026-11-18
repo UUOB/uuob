@@ -9,8 +9,15 @@
 # checks it before installing; see crates/uuob-update).
 set -euo pipefail
 arch=${1:-aarch64} dir=app
-name=$(python3 -c 'import json; print(json.load(open("app/src-tauri/tauri.conf.json"))["productName"])')
 tools=$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)
+
+if [ -x android/build.sh ]; then
+  # A native app (UUOB's own, in android/): its own build, then the same signing below.
+  name=$(sed -n 's/^rootProject.name = "\(.*\)"/\1/p' android/settings.gradle.kts)
+  android/build.sh "$arch"
+  built=android/app/build/outputs/apk/release/app-release-unsigned.apk dir=android
+else
+name=$(python3 -c 'import json; print(json.load(open("app/src-tauri/tauri.conf.json"))["productName"])')
 
 # Tauri writes TauriActivity.kt into the app only when its own build step runs,
 # and with one build cache for several apps it doesn't run again for an app that
@@ -21,6 +28,7 @@ find "$dir/src-tauri/gen/android/app/src/main/java" -name TauriActivity.kt | gre
 # UUOB_BUILD_CONFIG (optional): extra settings for this build, e.g. another update address when testing.
 (cd "$dir" && npx tauri android build --apk --target "$arch" ${UUOB_BUILD_CONFIG:+--config "$UUOB_BUILD_CONFIG"})
 built=$(ls "$dir"/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk | head -1)
+fi
 version=$("$tools/aapt2" dump badging "$built" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
 out=dist/$name-$version-${arch/aarch64/arm64}.apk
 

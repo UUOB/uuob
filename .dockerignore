@@ -10,3 +10,9 @@ shots
 **/src-tauri/gen/android/app/build
 # Android build folders (the Android container leaves root-owned files there)
 **/src-tauri/gen
+# The native apps' build folders
+android/.gradle
+android/build
+android/app/build
+android/app/src/main/jniLibs
+mac/build

@@ -129,13 +129,12 @@ struct Dot: View {
     var body: some View { Circle().fill(on ? Color.green : Color.secondary).frame(width: 8, height: 8) }
 }
 
-/// How known apps look. Unknown apps get a neutral tile.
+/// Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular.
 func appColor(_ app: String) -> Color {
-    switch app { case "tasks": .blue; case "calendar": .red; case "photos": .orange; default: .purple }
-}
-
-func appSymbol(_ app: String) -> String {
-    switch app { case "tasks": "checklist"; case "calendar": "calendar"; case "photos": "photo"; default: "externaldrive" }
+    let colors: [Color] = [.blue, .red, .orange, .green, .purple, .pink, .teal, .indigo]
+    // A stable hash (Swift's own changes every launch).
+    let hash = app.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0x7fffffff }
+    return colors[hash % colors.count]
 }
 
 struct AppTile: View {
@@ -144,7 +143,7 @@ struct AppTile: View {
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.26, style: .continuous).fill(appColor(app).gradient)
             .frame(width: size, height: size)
-            .overlay(Image(systemName: appSymbol(app)).font(.system(size: size * 0.46, weight: .semibold)).foregroundStyle(.white))
+            .overlay(Text(initial(app)).font(.system(size: size * 0.46, weight: .semibold, design: .rounded)).foregroundStyle(.white))
     }
 }
 

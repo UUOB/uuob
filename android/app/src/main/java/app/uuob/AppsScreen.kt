@@ -125,7 +125,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit) {
                 Column {
                   Row {
                     Text("${plural(g.records, "item", "items")} · ${size(g.bytes)} · ")
-                    if (g.installed) Text("Connected", color = Tint.ok) else Text("Not connected, data kept", color = Tint.photos)
+                    if (g.installed) Text("Connected", color = Tint.ok) else Text("Not connected, data kept", color = Tint.waiting)
                   }
                   storageNote(g).takeIf { it.isNotEmpty() }?.let { Text(it) }
                 }

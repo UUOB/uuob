@@ -14,7 +14,7 @@ val (major, minor, patch) = uuobVersion.split(".").map { it.toInt() }
 
 android {
     namespace = "app.uuob"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "app.uuob"
         minSdk = 26
@@ -41,7 +41,8 @@ android {
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
-    implementation("androidx.compose.material3:material3")
+    // 1.5: Material 3 Expressive (its theme and motion) is public from this version.
+    implementation("androidx.compose.material3:material3:1.5.0-rc01")
     implementation("androidx.compose.material3:material3-adaptive-navigation-suite")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.activity:activity-compose:1.13.0")
