@@ -82,8 +82,8 @@ pub extern "system" fn Java_app_uuob_UuobService_startNode(mut env: jni::JNIEnv,
 
 /// What is coming up in the user's apps (`Node::upcoming`) and the time
 /// format to show it in, `{ hour12, items }` as JSON, kept current: for the
-/// alerts (`alerts::ring` on computers, `Alerts.kt` on Android) and Android's
-/// "Up next" widget.
+/// alerts (`alerts::ring` on computers, `Alerts.kt` on Android) and, on
+/// Android, the apps' own widgets (`ToApps.kt`).
 fn upcoming_now() -> &'static tokio::sync::watch::Sender<String> {
     static UPCOMING: std::sync::OnceLock<tokio::sync::watch::Sender<String>> = std::sync::OnceLock::new();
     UPCOMING.get_or_init(|| tokio::sync::watch::channel(String::new()).0)

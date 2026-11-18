@@ -1,6 +1,7 @@
 //! Computers: apps' alerts (an event in ten minutes, a task that is due),
-//! shown by UUOB as notifications at their time, from what is coming up in
-//! the user's apps (see `Node::upcoming`). Android rings them in `Alerts.kt`.
+//! shown as notifications at their time, named for the app they came from,
+//! from what is coming up in the user's apps (see `Node::upcoming`). On Android the apps show them
+//! themselves; UUOB only keeps the time (`Alerts.kt`).
 
 use jiff::{Timestamp, ToSpan, Zoned, civil, tz::TimeZone};
 use serde_json::Value as Json;
@@ -92,7 +93,15 @@ fn show(item: &Json, hour12: bool) {
     let title = item["title"].as_str().unwrap_or_default().to_string();
     let app = item["app"].as_str().unwrap_or_default().to_string();
     let mut n = notify_rust::Notification::new();
-    n.summary(&title).subtitle(item["app_name"].as_str().unwrap_or_default()).body(&text(item, hour12)).appname("UUOB");
+    // Shown as the app's own alert where the system lets UUOB say so: by its
+    // name on Linux, as the installed app itself on Windows. macOS ties every
+    // notification of a process to one app, so there it still says UUOB.
+    let name = item["app_name"].as_str().filter(|n| !n.is_empty()).unwrap_or(&app).to_string();
+    n.summary(&title).body(&text(item, hour12)).appname(&name);
+    #[cfg(target_os = "macos")]
+    n.subtitle(&name);
+    #[cfg(windows)]
+    n.app_id(&format!("app.uuob.{app}"));
     // Waits for a click on its own thread; a click opens the app the alert came from.
     std::thread::spawn(move || {
         let Ok(shown) = n.show() else { return };

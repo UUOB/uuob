@@ -50,8 +50,9 @@ see exactly the data you choose, app by app.
 | **[Calendar](https://github.com/UUOB/calendar)** | Your calendars, plus any calendar link you subscribe to (Google, holidays) |
 | **[Photos](https://github.com/UUOB/photos)** | Photos and videos, kept on your devices instead of a cloud |
 
-UUOB itself also shows alerts from these apps on your phones and computers, and gives Android an
-**Up next** widget with what's coming from all of them.
+Their alerts ring on your phones and computers, also while the app is closed: UUOB keeps the time,
+and on Android the alert is the app's own notification. On Android, Calendar has an **Up next** widget
+with today and tomorrow.
 
 ## Runs on
 

@@ -42,8 +42,10 @@ class UuobService : Service() {
       .build()
     if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
     else startForeground(1, n)
+    // Apps show their own alerts now: drop the per-app channels UUOB once had.
+    nm.notificationChannels.filter { it.id.startsWith("app:") }.forEach { nm.deleteNotificationChannel(it.id) }
     startNode(dataDir.absolutePath)
-    // Hand what is coming up to Alerts (which rings it, also once this process is gone, and fills the widget).
+    // Hand what is coming up to Alerts (which keeps time for the alerts, also once this process is gone, and hands each app its part: its widget's list, its alerts when due).
     if (!watching) {
       watching = true
       val ctx = applicationContext

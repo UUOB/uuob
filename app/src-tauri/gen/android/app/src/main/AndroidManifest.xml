@@ -15,10 +15,19 @@
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
-    <!-- Tapping an alert or the widget opens the app it came from. -->
+    <!-- Apps get what is coming up in them, for their widget, and their alerts
+         when due, to show as their own (ToApps.kt). Only apps signed like UUOB
+         hold this. -->
+    <permission
+        android:name="app.uuob.permission.UPCOMING"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="app.uuob.permission.UPCOMING" />
     <queries>
         <intent>
-            <action android:name="android.intent.action.MAIN" />
+            <action android:name="app.uuob.UPCOMING" />
+        </intent>
+        <intent>
+            <action android:name="app.uuob.SHOW_ALERT" />
         </intent>
     </queries>
 
@@ -90,25 +99,15 @@
             </intent-filter>
         </receiver>
 
-        <!-- The "Up next" widget (UpNext.kt), and a tap on it opening an app. -->
+        <!-- An app asking for what is coming up in it, for its widget (ToApps.kt). -->
         <receiver
-            android:name=".UpNext"
-            android:exported="false"
-            android:label="@string/up_next">
+            android:name=".AskReceiver"
+            android:exported="true"
+            android:permission="app.uuob.permission.UPCOMING">
             <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.uuob.SEND_UPCOMING" />
             </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/up_next" />
         </receiver>
-        <activity
-            android:name=".OpenApp"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:noHistory="true"
-            android:taskAffinity=""
-            android:theme="@android:style/Theme.NoDisplay" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

@@ -409,8 +409,8 @@ export const uuob = {
     },
   },
 
-  /** What is coming up in this app, for the user's devices to show (UUOB's
-   *  "Up next" widget) and ring (alerts), also while the app is closed: hands
+  /** What is coming up in this app, for the user's devices to show (the
+   *  app's own widget) and ring (alerts), also while the app is closed: hands
    *  UUOB the whole list, `[{ id, date: 'YYYY-MM-DD', time?: 'HH:MM', end_date?,
    *  end?, tz?, title, body?, alert?, color? }]`. An item starts at `date` `time` (all
    *  day without a time) on the wall clock of `tz`, or of the device without
