@@ -1,0 +1,17 @@
+[package]
+name = "uuob-linux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "UUOB's window on Linux: GTK 4 and Libadwaita (Relm4), straight on the Rust core."
+
+[[bin]]
+name = "uuob-window"
+path = "src/main.rs"
+
+[dependencies]
+uuob-app = { path = "../crates/uuob-app" }
+# Libadwaita 1.5 (GNOME 46): adaptive layout, dialogs that fit phones and computers.
+relm4 = { version = "0.11", features = ["libadwaita", "gnome_46"] }
+serde_json = "1"
+qrcode = { version = "0.14", default-features = false }
