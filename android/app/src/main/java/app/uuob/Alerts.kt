@@ -1,23 +1,21 @@
 package app.uuob
 
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import java.util.Calendar
 import java.util.TimeZone
 
 /**
  * What is coming up in the user's apps (events, tasks that are due), kept on
- * this phone for the alerts (shown as notifications at their time) and the
- * "Up next" widget, because UUOB is the one process that keeps running and
- * learns about changes made on other devices.
+ * this phone for the alerts and the apps' own widgets, because UUOB is the
+ * one process that keeps running and learns about changes made on other
+ * devices. UUOB only keeps time: when an alert is due it hands it to its app
+ * (ToApps), and the app shows it as its own notification.
  *
  * Each app keeps its list in UUOB (see `Node::upcoming`: `{ date, time?,
  * end_date?, end?, tz?, title, body?, alert? }`, times on the wall clock of
@@ -32,8 +30,8 @@ object Alerts {
   private const val STALE = 60 * 60 * 1000L
 
   class Item(
-    val key: String, val app: String, val appName: String, val title: String, val body: String,
-    /** One of the calendar colours ("blue", "red", …), for the widget. */
+    val key: String, val app: String, val title: String, val body: String,
+    /** One of the calendar colours ("blue", "red", …). */
     val color: String,
     /** When it starts (midnight of its day for one without a time) and ends (null: it doesn't). */
     val start: Long, val end: Long?, val timed: Boolean, val rings: Long?,
@@ -54,7 +52,7 @@ object Alerts {
     if (!p.contains("since")) p.edit().putLong("since", System.currentTimeMillis()).apply()
     p.edit().putString("list", list).apply()
     arm(ctx)
-    UpNext.refresh(ctx)
+    ToApps.send(ctx)
   }
 
   /** Alerts still to ring: not rung yet, and not more than STALE late (one
@@ -92,32 +90,13 @@ object Alerts {
     val rung = p.getStringSet("rung", emptySet())!!.filter { (it.substringAfterLast('@').toLongOrNull() ?: 0) > now - STALE }
     p.edit().putStringSet("rung", (rung + due.map { "${it.key}@${it.rings}" }).toSet()).apply()
     arm(ctx)
-    UpNext.refresh(ctx)
   }
 
-  /** Opens the app `id` (UUOB's apps are app.uuob.<id>), if it is on this phone. */
-  fun openApp(ctx: Context, id: String): Intent? = ctx.packageManager.getLaunchIntentForPackage("app.uuob.$id")
+  /** Hands an alert to the app it came from, which shows it as its own
+   *  notification (see ToApps.alert). UUOB never shows apps' alerts itself. */
+  private fun show(ctx: Context, a: Item) = ToApps.alert(ctx, a.app, a.key, a.title, a.text(hour12(ctx)))
 
-  private fun show(ctx: Context, a: Item) {
-    val nm = ctx.getSystemService(NotificationManager::class.java)
-    // One channel per app, so the user can quiet one app in Android's settings.
-    val channel = "app:${a.app}"
-    nm.createNotificationChannel(NotificationChannel(channel, a.appName, NotificationManager.IMPORTANCE_HIGH))
-    // Tapping opens the app it came from (nothing to open if it isn't on this phone).
-    val tap = openApp(ctx, a.app)?.let { PendingIntent.getActivity(ctx, a.key.hashCode(), it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
-    val n = NotificationCompat.Builder(ctx, channel)
-      .setSmallIcon(R.drawable.ic_notify)
-      .setSubText(a.appName) // "UUOB · Calendar" above the title
-      .setContentTitle(a.title)
-      .apply { a.text(hour12(ctx)).takeIf { it.isNotEmpty() }?.let { setContentText(it) } }
-      .setCategory(NotificationCompat.CATEGORY_REMINDER)
-      .setPriority(NotificationCompat.PRIORITY_HIGH)
-      .apply { if (tap != null) setContentIntent(tap).setAutoCancel(true) }
-      .build()
-    nm.notify(a.key.hashCode(), n)
-  }
-
-  private fun list(ctx: Context) = try { JSONObject(prefs(ctx).getString("list", null) ?: "{}") } catch (e: Exception) { JSONObject() }
+  fun list(ctx: Context) = try { JSONObject(prefs(ctx).getString("list", null) ?: "{}") } catch (e: Exception) { JSONObject() }
 
   fun hour12(ctx: Context) = list(ctx).optBoolean("hour12", false)
 
@@ -140,7 +119,7 @@ object Alerts {
       }
       val app = o.optString("app")
       val rings = (o.opt("alert") as? Number)?.takeIf { timed }?.let { start - it.toLong() * 60_000 }
-      Item("$app/${o.optString("id")}", app, o.optString("app_name", app), o.optString("title"), o.optString("body"), o.optString("color"), start, end, timed, rings)
+      Item("$app/${o.optString("id")}", app, o.optString("title"), o.optString("body"), o.optString("color"), start, end, timed, rings)
     }.sortedBy { it.start }
   }
 
@@ -172,9 +151,6 @@ object Alerts {
 class AlertReceiver : BroadcastReceiver() {
   override fun onReceive(ctx: Context, intent: Intent) {
     if (intent.action == "app.uuob.ALERT") Alerts.fire(ctx)
-    else {
-      Alerts.arm(ctx)
-      UpNext.refresh(ctx)
-    }
+    else Alerts.arm(ctx)
   }
 }

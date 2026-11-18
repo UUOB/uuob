@@ -48,7 +48,7 @@ class UuobService : Service() {
         android.util.Log.e("UUOB", "UUOB could not start: ${e.message}")
       }
     }
-    // Hand what is coming up to Alerts (which keeps time for the alerts, also once this process is gone).
+        // Hand what is coming up to Alerts (which keeps time for the alerts, also once this process is gone, and hands each app its part: its widget's list, its alerts when due).
     if (!watching) {
       watching = true
       Core.scope.launch {

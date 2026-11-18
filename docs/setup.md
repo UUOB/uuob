@@ -33,7 +33,8 @@ brew install --cask uuob
 
 1. On the phone, open the download page and tap **UUOB for Android**.
 2. When asked, allow your browser to install apps.
-3. Open UUOB and allow notifications. It uses them to show your alerts.
+3. Open UUOB and allow notifications, so you see that it is running. Calendar and Tasks ask too, when you
+   first open them: their alerts are their own notifications.
 4. Optional: turn on **Devices → This phone → Start when the phone turns on**.
 
 With F-Droid instead: add this repository in F-Droid (or Droid-ify), then install UUOB from there. Updates
@@ -119,8 +120,8 @@ An app also works on a device where UUOB isn't installed. It then uses UUOB on y
 - **Share with someone.** Once, link with them: one of you opens **People → Add a person** and the other
   types the code it shows. Then open a list in
   Tasks or a calendar in Calendar and choose **Share**, with *Can view* or *Can edit*.
-- **Up next widget (Android).** Long-press the home screen → **Widgets** → **UUOB** → **Up next**. It shows
-  what's coming from all your apps on a day timeline.
+- **Up next widget (Android).** Long-press the home screen → **Widgets** → **Calendar** → **Up next**. It
+  shows today and tomorrow side by side, from the hour you are in.
 - **Storage devices.** In **Devices → Storage devices**, turn on the switch for a device with plenty of
   space that is usually on. Apps with large data, like Photos, can then keep less on your phone.
 - **AI access.** **AI access → Connect an AI** lets an AI assistant (Claude or another) use your data. It

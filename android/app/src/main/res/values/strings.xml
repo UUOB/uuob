@@ -1,6 +1,4 @@
 <resources>
     <string name="app_name">"UUOB"</string>
     <string name="main_activity_title">"UUOB"</string>
-    <string name="up_next">Up next</string>
-    <string name="up_next_about">What is coming up in your apps: events, tasks that are due</string>
 </resources>
