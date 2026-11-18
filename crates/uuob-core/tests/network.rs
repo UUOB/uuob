@@ -1298,6 +1298,47 @@ async fn settings_apply_to_every_app_and_device() {
     assert!(a.call(&tasks(), "set_settings", json!({"hour12": "yes"})).await.is_err());
 }
 
+#[tokio::test]
+async fn apps_upcoming_reaches_the_other_devices() {
+    let net = MemoryLookup::new();
+    let (da, db) = (TempDir::new().unwrap(), TempDir::new().unwrap());
+    let a = node(&da, "Laptop", &net).await;
+    let b = node(&db, "Phone", &net).await;
+    a.install_app(&manifest("tasks", "Tasks")).unwrap();
+    pair(&a, &b).await;
+    let app = tasks();
+    let put = |container: &str, id: &str, value: serde_json::Value| {
+        a.call(&app, "put", json!({"container": container, "collection": "upcoming", "id": id, "value": value}))
+    };
+
+    // Tasks on the laptop keeps what is coming up in its own container.
+    put("tasks", "later", json!({"date": "2030-01-02", "title": "Call the bank"})).await.unwrap();
+    put("tasks", "soon", json!({"date": "2030-01-01", "time": "18:30", "tz": "Europe/Prague", "title": "Water the plants", "body": "Home", "alert": 0, "new": 1}))
+        .await
+        .unwrap();
+    // Not an item: no date.
+    put("tasks", "broken", json!({"time": "09:00", "title": "?"})).await.unwrap();
+    // A list's container can be shared with other people: its "upcoming" is just records.
+    let list = a.create_container("tasks", "Groceries", None).unwrap();
+    put(&list, "x", json!({"date": "2030-01-01", "time": "08:00", "title": "Not for the phone"})).await.unwrap();
+
+    // The phone has them, soonest first, with the app they came from.
+    eventually("the phone has what is coming up", || b.upcoming().len() == 2).await;
+    let items = b.upcoming();
+    assert_eq!(
+        items[0],
+        json!({"id": "soon", "date": "2030-01-01", "time": "18:30", "tz": "Europe/Prague", "title": "Water the plants", "body": "Home", "alert": 0, "new": 1, "app": "tasks", "app_name": "Tasks"})
+    );
+    assert_eq!(items[1]["id"], "later");
+    assert_eq!(b.call(&Client::Shell, "upcoming", json!({})).await.unwrap(), json!(items));
+    // Apps can't read it (only the device itself acts on it).
+    assert!(b.call(&tasks(), "upcoming", json!({})).await.is_err());
+
+    // A removed app's items go.
+    a.uninstall_app("tasks", false).unwrap();
+    eventually("the items are gone", || b.upcoming().is_empty()).await;
+}
+
 /// `call` is async but answers settings right away; `eventually` takes a plain closure.
 fn at_once<F: std::future::Future<Output = Result<serde_json::Value>>>(f: F) -> serde_json::Value {
     let mut f = std::pin::pin!(f);

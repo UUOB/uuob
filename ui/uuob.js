@@ -45,6 +45,9 @@ const askListeners = new Set(); // (waiting: boolean) => void
 const settingsListeners = new Set(); // (settings) => void, for a change made here
 const SETTINGS = { hour12: false, sunday_first: false };
 let settingsChanges = 0; // changes made here, so an older read doesn't undo one
+// The list this copy of the app gave UUOB last (see uuob.upcoming), and its queue.
+let upcomingGiven = null;
+let upcomingDone = Promise.resolve();
 let remote = false; // UUOB is on another device
 
 // A question to the user is answered in UUOB. When UUOB is on another
@@ -406,6 +409,44 @@ export const uuob = {
     },
   },
 
+  /** What is coming up in this app, for the user's devices to show (UUOB's
+   *  "Up next" widget) and ring (alerts), also while the app is closed: hands
+   *  UUOB the whole list, `[{ id, date: 'YYYY-MM-DD', time?: 'HH:MM', end_date?,
+   *  end?, tz?, title, body?, alert?, color? }]`. An item starts at `date` `time` (all
+   *  day without a time) on the wall clock of `tz`, or of the device without
+   *  one, and is over after `end_date` `end` (never without them: a task that
+   *  is due stays until the app takes it off the list). `body` is a short
+   *  second line (a place, a list's name); `alert` is how many minutes before
+   *  the start to ring (none without it); `color` one of the calendar colours
+   *  of tokens.css ('blue', 'red', 'orange', 'yellow', 'green', 'teal',
+   *  'purple', 'pink').
+   *
+   *  Give ids that stay the same for the same item: every copy of the app, on
+   *  any device, writes the same list, and only what differs is written.
+   *  Items that left the list are removed. While UUOB is unreachable, nothing
+   *  happens; call it again whenever what the list comes from changes. A list
+   *  is written only when it differs from the one this copy of the app gave
+   *  last time: two copies that see things a little differently (another time
+   *  zone, an older version) then take turns instead of rewriting each other
+   *  for good. */
+  upcoming(list) {
+    const key = JSON.stringify(list);
+    return (upcomingDone = upcomingDone.then(async () => {
+      if (key === upcomingGiven) return;
+      const c = uuob.collection('upcoming');
+      const now = await call('list', { collection: 'upcoming' }).catch(() => null);
+      if (!now) return;
+      const same = (a, b) => JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+      const want = new Map(list.map(({ id, ...a }) => [String(id), Object.fromEntries(Object.entries(a).filter(([, v]) => v != null))]));
+      for (const { id } of now) if (!want.has(id)) await c.delete(id);
+      for (const [id, a] of want) {
+        const { id: _, ...had } = now.find((r) => r.id === id) ?? {};
+        if (!same(had, a)) await c.put(a, id);
+      }
+      upcomingGiven = key;
+    }).catch(() => {}));
+  },
+
   /** This app's containers: its first, private one (`main`) plus one per list,
    *  calendar, … including those other people shared with the user.
    *  Each is `{ id, name, main, canWrite, from: {id, name} | null, sharedWith: [{id, name, access}],
@@ -472,14 +513,19 @@ export const uuob = {
     };
   },
 
-  /** Every record of `collection` across all of this app's containers, live.
-   *  Each record carries the id of its `container`. */
+  /** Every record of `collection` across all of this app's containers, live:
+   *  `fn(records, complete)`, each record with the id of its `container`;
+   *  `complete` once every container has delivered its records. */
   all(collection) {
     return {
       subscribe(fn) {
         const subs = new Map();
         const data = new Map();
-        const emit = () => fn([...data].flatMap(([container, rs]) => rs.map((r) => ({ ...r, container }))));
+        const emit = () =>
+          fn(
+            [...data].flatMap(([container, rs]) => rs.map((r) => ({ ...r, container }))),
+            [...subs.keys()].every((id) => data.has(id)),
+          );
         const off = uuob.containers.subscribe((cs) => {
           const ids = new Set(cs.map((c) => c.id));
           for (const [id, stop] of subs) {

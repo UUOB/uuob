@@ -732,6 +732,41 @@ impl Node {
         self.read_net(net::apps)
     }
 
+    /// What is coming up in the user's apps (events, tasks that are due), for
+    /// the device to show (a widget) and ring (alerts): the records of
+    /// collection `upcoming` in each installed app's own container (which is
+    /// never shared, so nobody else gets them), plus `app` and `app_name`.
+    ///
+    /// An item is `{ date: "YYYY-MM-DD", time?: "HH:MM", end_date?, end?, tz?,
+    /// title, body?, alert?, color? }`: it starts at `date` `time` (all day without a
+    /// time) on the wall clock of `tz`, or of the device without one, and is
+    /// over after `end_date` `end` (never without them, like a task that is
+    /// due). `alert` is how many minutes before the start to ring, if at all;
+    /// `color` is one of the calendar colours ("blue", "red", "orange",
+    /// "yellow", "green", "teal", "purple", "pink"). Other fields are passed on
+    /// as they are. Each app keeps its list
+    /// current (`uuob.upcoming` in the SDK).
+    pub fn upcoming(&self) -> Vec<Json> {
+        let apps = self.read_net(net::apps);
+        let mut out = vec![];
+        for (id, app) in apps.into_iter().filter(|(_, a)| a.installed) {
+            // Not on this device (or not arrived yet): nothing to show from it.
+            let Ok(records) = self.list(&Client::App(id.clone()), &id, "upcoming") else { continue };
+            for mut r in records {
+                let text = |k: &str| r.get(k).is_some_and(Json::is_string);
+                if !(text("date") && text("title")) {
+                    continue;
+                }
+                r["app"] = id.clone().into();
+                r["app_name"] = app.name.clone().into();
+                out.push(r);
+            }
+        }
+        let when = |r: &Json| format!("{} {}", r["date"].as_str().unwrap_or(""), r["time"].as_str().unwrap_or(""));
+        out.sort_by_cached_key(when);
+        out
+    }
+
     /// Install an app. It gets its own container (created if missing, or
     /// re-created fresh if its data was deleted earlier).
     pub fn install_app(&self, m: &AppManifest) -> Result<()> {

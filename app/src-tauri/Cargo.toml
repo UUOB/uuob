@@ -22,6 +22,9 @@ tauri-plugin-uuob-update = { path = "../../crates/uuob-update" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+# Computers: apps' alerts, rung by UUOB itself (Android rings them in Alerts.kt).
+notify-rust = "4"
+jiff = "0.2"
 
 # Android: the background service and the "start when the phone turns on" switch.
 [target.'cfg(target_os = "android")'.dependencies]

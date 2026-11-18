@@ -7,6 +7,9 @@ use serde_json::Value as Json;
 use tauri::{Emitter, Manager, State};
 use uuob_core::{Client, Config, Event, NetMode, Node};
 
+#[cfg(desktop)]
+mod alerts;
+
 /// The UUOB window acting for the user.
 #[tauri::command]
 async fn call(node: State<'_, Node>, method: String, params: Json) -> Result<Json, String> {
@@ -44,6 +47,9 @@ async fn node(data_dir: std::path::PathBuf) -> uuob_core::Result<Node> {
             keystore: None,
         })
         .await?;
+        watch_upcoming(node.clone());
+        #[cfg(desktop)]
+        alerts::ring();
         let n = node.clone();
         tauri::async_runtime::spawn(async move {
             let addr = ([127, 0, 0, 1], uuob_api::port()).into();
@@ -72,6 +78,67 @@ pub extern "system" fn Java_app_uuob_UuobService_startNode(mut env: jni::JNIEnv,
             eprintln!("UUOB could not start: {e}");
         }
     });
+}
+
+/// What is coming up in the user's apps (`Node::upcoming`) and the time
+/// format to show it in, `{ hour12, items }` as JSON, kept current: for the
+/// alerts (`alerts::ring` on computers, `Alerts.kt` on Android) and Android's
+/// "Up next" widget.
+fn upcoming_now() -> &'static tokio::sync::watch::Sender<String> {
+    static UPCOMING: std::sync::OnceLock<tokio::sync::watch::Sender<String>> = std::sync::OnceLock::new();
+    UPCOMING.get_or_init(|| tokio::sync::watch::channel(String::new()).0)
+}
+
+fn watch_upcoming(node: Node) {
+    tauri::async_runtime::spawn(async move {
+        use tokio::sync::broadcast::error::RecvError;
+        let mut events = node.subscribe();
+        loop {
+            let settings = node.call(&Client::Shell, "settings", Json::Null).await.unwrap_or_default();
+            let hour12 = settings["hour12"].as_bool().unwrap_or(false);
+            let json = serde_json::json!({ "hour12": hour12, "items": node.upcoming() }).to_string();
+            upcoming_now().send_if_modified(|v| *v != json && {
+                *v = json.clone();
+                true
+            });
+            // Wait for data to change, and for a burst of changes (a sync) to settle.
+            loop {
+                match events.recv().await {
+                    Ok(Event::ContainerChanged { .. } | Event::NetworkChanged) | Err(RecvError::Lagged(_)) => break,
+                    Ok(_) => {}
+                    Err(RecvError::Closed) => return,
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            events = events.resubscribe();
+        }
+    });
+}
+
+/// Android: `UuobService` waits here for what is coming up (`upcoming_now`)
+/// to differ from what it has (`known`), on a thread of its own, and gets it.
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_uuob_UuobService_nextUpcoming<'l>(
+    mut env: jni::JNIEnv<'l>,
+    _this: jni::objects::JObject<'l>,
+    known: jni::objects::JString<'l>,
+) -> jni::sys::jstring {
+    let known: String = env.get_string(&known).map(Into::into).unwrap_or_default();
+    let mut rx = upcoming_now().subscribe();
+    let next = tauri::async_runtime::block_on(async move {
+        loop {
+            {
+                let v = rx.borrow_and_update();
+                if !v.is_empty() && *v != known {
+                    return v.clone();
+                }
+            }
+            // The sender lives for good, so this only waits.
+            let _ = rx.changed().await;
+        }
+    });
+    env.new_string(next).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
 }
 
 /// Android: UUOB starts when the phone turns on if its `BootReceiver` is

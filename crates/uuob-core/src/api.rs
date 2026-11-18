@@ -213,6 +213,7 @@ impl Node {
                 ok(self.join(&code).await?)
             }
             "apps" => ok(self.apps()),
+            "upcoming" => ok(self.upcoming()),
             "asks" => ok(self.asks()),
             "answer" => {
                 #[derive(Deserialize)]

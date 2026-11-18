@@ -101,5 +101,30 @@ cli(B, 'call', 'set_settings', JSON.stringify({ sunday_first: true }));
 await until('a change made elsewhere reaches the app', () => settings.sunday_first === true && settings.hour12 === true);
 offSettings();
 
-console.log('ok: the SDK reads, writes, and sends later what was changed while UUOB was away; settings reach every app');
+// What is coming up: the app hands over its whole list; the other device has
+// it, and a new list replaces it.
+const upcomingOn = (dev) => JSON.parse(cli(dev, 'call', 'upcoming', '{}')).map(({ id, title, body }) => `${id}:${title}:${body ?? ''}`).join(' ');
+await uuob.upcoming([
+  { id: 'a', date: '2030-01-01', time: '09:00', title: 'One', body: 'Room 2', alert: 10 },
+  { id: 'b', date: '2030-01-02', title: 'Two' },
+]);
+await until('the other device has the list', () => upcomingOn(B) === 'a:One:Room 2 b:Two:');
+await uuob.upcoming([
+  { id: 'a', date: '2030-01-01', time: '09:00', title: 'One', body: null, alert: 10 }, // the place went
+  { id: 'c', date: '2030-01-03', time: '10:00', tz: 'Europe/Prague', title: 'Three' },
+]);
+await until('the new list replaced it', () => upcomingOn(B) === 'a:One: c:Three:');
+// Another copy of the app (here: the other device) writes its own version of
+// an item. Handing over the same list again doesn't undo it: copies that see
+// things differently don't rewrite each other for good.
+cli(B, 'call', 'put', JSON.stringify({ ...at, collection: 'upcoming', id: 'c', value: { date: '2030-01-03', time: '10:00', title: 'Three, elsewhere' } }));
+await until('the app sees the other version', async () => (await uuob.collection('upcoming').get('c'))?.title === 'Three, elsewhere');
+await uuob.upcoming([
+  { id: 'a', date: '2030-01-01', time: '09:00', title: 'One', body: null, alert: 10 },
+  { id: 'c', date: '2030-01-03', time: '10:00', tz: 'Europe/Prague', title: 'Three' },
+]);
+await sleep(1000);
+assert.equal(upcomingOn(B), 'a:One: c:Three, elsewhere:');
+
+console.log('ok: the SDK reads, writes, and sends later what was changed while UUOB was away; settings and what is coming up reach every device');
 process.exit(0);

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#FF1C1C1F</color>
+    <color name="widget_text">#FFF5F5F7</color>
+    <color name="widget_text_2">#9EF5F5F7</color>
+    <color name="widget_accent">#FF0A84FF</color>
+    <!-- Which drawing of the widget shows: 0 visible, 2 gone. -->
+    <integer name="widget_day">2</integer>
+    <integer name="widget_night">0</integer>
+</resources>

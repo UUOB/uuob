@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Up next" widget, in UUOB's colours (ui/tokens.css). -->
+<resources>
+    <color name="widget_bg">#FFFFFFFF</color>
+    <color name="widget_text">#FF1D1D1F</color>
+    <color name="widget_text_2">#9E1D1D1F</color>
+    <color name="widget_accent">#FF007AFF</color>
+    <!-- Which drawing of the widget shows: 0 visible, 2 gone. -->
+    <integer name="widget_day">0</integer>
+    <integer name="widget_night">2</integer>
+</resources>

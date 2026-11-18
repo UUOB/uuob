@@ -91,7 +91,7 @@
     flex-wrap: wrap;
   }
   .settings :global(.srow + .srow) { border-top: 1px solid var(--line); }
-  .settings :global(.srow .label) { font-size: 16px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+  .settings :global(.srow .label) { font-size: 16px; font-weight: 500; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
   .settings :global(.srow .value) { font-size: 15px; color: var(--text-2); }
   .settings :global(.foot) { font-size: 13px; color: var(--text-2); margin: 8px 4px 0; }
   .segmented button { min-width: 74px; font-variant-numeric: tabular-nums; }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The status bar icon: UUOB's mark (brand/logo-mono.svg) in white, drawn
+     larger and bolder so it reads at 24dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+    <group android:pivotX="534" android:pivotY="514" android:scaleX="1.42" android:scaleY="1.42" android:translateX="-22" android:translateY="-2">
+        <path android:pathData="M430.5,429.3 L349.1,579.2" android:strokeColor="#FFFFFFFF" android:strokeWidth="30" android:strokeLineCap="round" />
+        <path android:pathData="M593.5,429.3 L672.2,574.3" android:strokeColor="#FFFFFFFF" android:strokeWidth="30" android:strokeLineCap="round" />
+        <path android:pathData="M435.5,724.4 L582.9,724.4" android:strokeColor="#FFFFFFFF" android:strokeWidth="30" android:strokeLineCap="round" />
+        <path android:pathData="M430.8,192.4 H593.2 A19.6,19.6 0 0,1 612.8,212.0 V307.2 A19.6,19.6 0 0,1 593.2,326.8 H430.8 A19.6,19.6 0 0,1 411.2,307.2 V212.0 A19.6,19.6 0 0,1 430.8,192.4 Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="40" android:strokeLineCap="round" />
+        <path android:pathData="M374.8,360.4 L649.2,360.4" android:strokeColor="#FFFFFFFF" android:strokeWidth="40" android:strokeLineCap="round" />
+        <path android:pathData="M236.7,612.4 H303.9 A28.0,28.0 0 0,1 331.9,640.4 V808.4 A28.0,28.0 0 0,1 303.9,836.4 H236.7 A28.0,28.0 0 0,1 208.7,808.4 V640.4 A28.0,28.0 0 0,1 236.7,612.4 Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="40" android:strokeLineCap="round" />
+        <path android:pathData="M666.9,623.6 H840.5 A19.6,19.6 0 0,1 860.1,643.2 V690.8 A19.6,19.6 0 0,1 840.5,710.4 H666.9 A19.6,19.6 0 0,1 647.3,690.8 V643.2 A19.6,19.6 0 0,1 666.9,623.6 Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="40" android:strokeLineCap="round" />
+        <path android:pathData="M666.9,738.4 H840.5 A19.6,19.6 0 0,1 860.1,758.0 V805.6 A19.6,19.6 0 0,1 840.5,825.2 H666.9 A19.6,19.6 0 0,1 647.3,805.6 V758.0 A19.6,19.6 0 0,1 666.9,738.4 Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="40" android:strokeLineCap="round" />
+        <path android:pathData="M349.8,504.3 A40,40 0 1,0 429.8,504.3 A40,40 0 1,0 349.8,504.3 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M592.8,501.8 A40,40 0 1,0 672.8,501.8 A40,40 0 1,0 592.8,501.8 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M469.2,724.4 A40,40 0 1,0 549.2,724.4 A40,40 0 1,0 469.2,724.4 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M253.3,788.8 A17,17 0 1,0 287.3,788.8 A17,17 0 1,0 253.3,788.8 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M798.5,667.0 A14,14 0 1,0 826.5,667.0 A14,14 0 1,0 798.5,667.0 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M798.5,781.8 A14,14 0 1,0 826.5,781.8 A14,14 0 1,0 798.5,781.8 Z" android:fillColor="#FFFFFFFF" />
+    </group>
+</vector>
