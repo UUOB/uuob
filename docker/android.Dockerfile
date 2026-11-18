@@ -12,3 +12,5 @@ RUN mkdir -p /opt/android/cmdline-tools && cd /tmp \
  && sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" \
       "emulator" "system-images;android-36;google_apis;x86_64" >/dev/null
 RUN rustup target add aarch64-linux-android x86_64-linux-android
+# The newest AndroidX libraries (UUOB's Compose app) compile against Android 37.
+RUN yes | sdkmanager "platforms;android-37.0" >/dev/null

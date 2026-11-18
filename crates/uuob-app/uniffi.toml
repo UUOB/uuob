@@ -1,0 +1,7 @@
+# How UniFFI names the bindings it writes for the screens.
+[bindings.kotlin]
+package_name = "app.uuob.core"
+cdylib_name = "uuob_app"
+
+[bindings.swift]
+module_name = "UuobCore"

@@ -135,3 +135,28 @@ fn plugin<R: Runtime>() -> TauriPlugin<R> {
         })
         .build()
 }
+
+#[cfg(test)]
+mod tests {
+    /// Computers read the feed with Tauri's updater and phones with `newer`:
+    /// both have to make sense of what docker/feed.py publishes.
+    #[test]
+    fn the_published_feed_is_readable() {
+        let dist = std::env::temp_dir().join(format!("uuob-feed-{}", std::process::id()));
+        std::fs::create_dir_all(dist.join("releases")).unwrap();
+        for file in ["arm64.apk.sig", "mac.app.tar.gz.sig", "mac.dmg"] {
+            std::fs::write(dist.join(format!("UUOB-0.1.2-{file}")), "s").unwrap();
+        }
+        let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docker/feed.py");
+        let written = std::process::Command::new("python3").args([script, "someone/releases", "uuob", "UUOB", "0.1.2"]).arg(&dist).status().unwrap();
+        assert!(written.success());
+        let feed = std::fs::read(dist.join("releases/uuob.json")).unwrap();
+        std::fs::remove_dir_all(dist).unwrap();
+
+        let release: tauri_plugin_updater::RemoteRelease = serde_json::from_slice(&feed).unwrap();
+        assert_eq!(release.version, semver::Version::new(0, 1, 2));
+        let (version, file) = crate::feed::newer(&feed, &semver::Version::new(0, 1, 1), "android-aarch64").unwrap().unwrap();
+        assert_eq!(version, "0.1.2");
+        assert_eq!(file.url, "https://github.com/someone/releases/releases/download/uuob-v0.1.2/UUOB-0.1.2-arm64.apk");
+    }
+}

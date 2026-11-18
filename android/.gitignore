@@ -1,0 +1,6 @@
+# Built by build.sh: the Rust library and its Kotlin bindings.
+/app/src/main/jniLibs/
+/app/src/main/java/app/uuob/core/
+.gradle/
+build/
+local.properties
