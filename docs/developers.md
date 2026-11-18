@@ -5,7 +5,8 @@ For using UUOB, see the [README](../README.md) and [Get started](setup.md).
 
 ## How it works
 
-- **UUOB is the backend app.** Install it once per device. It runs in the background (tray / menu bar icon on computers, a quiet notification on Android) and holds your data. A new device starts as its own one-device network.
+- **UUOB is the backend app.** Install it once per device. It runs in the background (menu bar icon on a Mac, a quiet notification on Android, no window on a server) and holds your data. A new device starts as its own one-device network.
+- **One core, native screens.** Everything UUOB does is Rust (`crates/`). Its screens are native to each system: SwiftUI on the Mac (`mac/`), Jetpack Compose on Android (`android/`), GTK and Libadwaita on Linux (`linux/`). They reach the core through a few functions (`crates/uuob-app/src/ffi.rs`, turned into Swift and Kotlin by UniFFI): start UUOB, call a method, wait for the next change. Every method is the same one apps and AI clients use (`Node::call`), so permissions are checked in one place.
 - **Linking devices:** on a device that's already set up, go to *Devices → Add a device*. It shows a code like `42-amber-river-falcon` (and a QR code of it). On the new device, choose *Join a network* and type the code. No accounts, no servers to run, no Tailscale.
 - **Sync:** devices connect to each other directly (iroh/QUIC, end-to-end encrypted between device keys). Public relays are only used to get through firewalls, and they only see ciphertext. Data is stored only on your devices, encrypted at rest.
 - **Apps are separate programs with no backend.** Tasks and Calendar are their own installable apps. On first launch they find UUOB on the same device and ask to connect: UUOB pops up *"Tasks wants to use your network"* and you tap *Allow*. Or, in UUOB, choose *Apps → Connect with a code* and type the code into the app. The app then gets a key and its own *container*, and stores records through a tiny SDK (`ui/uuob.js`): `put / get / delete / list / subscribe`. While UUOB is not reachable the app keeps working on what it last saw: changes to records wait in the app and are sent, field by field, when UUOB is back.
@@ -26,8 +27,11 @@ crates/uuob-core   identity, encrypted store, containers, files, permissions, ap
 crates/uuob-api    local server: app API + MCP (localhost, token-scoped)
 crates/uuob-cli    `uuob`: UUOB without a window, and control of a running UUOB from the terminal
 crates/uuob-sdk    the native half of the app SDK: where UUOB is, and linking to one on another device
-crates/uuob-update in-app updates, shared by the apps (not part of UUOB itself)
-app/               UUOB, the backend app (Tauri v2 + Svelte): devices, people, apps, AI access
+crates/uuob-app    the UUOB app's Rust half: the node and local server, alerts, start at login, updates, and the functions the screens use
+crates/uuob-update in-app updates for the apps (Tauri), sharing UUOB's feed format
+mac/               UUOB for the Mac (SwiftUI): devices, people, apps, AI access, the menu bar icon
+android/           UUOB for Android (Jetpack Compose, Material 3): the same screens, the background service, alerts
+linux/             UUOB's window on Linux (Relm4: GTK 4 + Libadwaita)
 ui/                shared design system (tokens, icons), the app SDK and the connect screen
 docker/            dev + Android images and scripts (everything builds and runs in Docker)
 ```
@@ -46,33 +50,50 @@ docker/dev.sh cargo test --workspace                        # core + API tests
 docker/dev.sh cargo test -p uuob-core -- --ignored internet # real relays/discovery
 docker/dev.sh sh -c 'cargo build -p uuob-cli && node ui/uuob.test.mjs'   # the app SDK against a real UUOB
 docker/dev.sh sh -c 'cargo build --release -p uuob-cli && UUOB_BIN=target/release/uuob node docker/stress.mjs'   # 2,000 pictures and a 1 GB video on three devices
-docker/dev.sh sh -c 'npm install && npm run build'          # UUOB's front end
-docker/dev.sh cargo build -p uuob-app                       # the desktop app (Linux)
-docker/dev.sh docker/shoot-photos.sh shots/photos           # UUOB and Photos side by side, with demo pictures (needs Photos built from its repository, see the script)
-docker/dev.sh sh -c 'cargo run -p uuob-core --example seed -- target/demo && docker/shoot.sh target/demo shots/demo 1280x820 dark'
+docker/dev.sh cargo test -p uuob-app                        # the functions the native screens use
+```
+
+Screenshots of UUOB's Linux window run in the Linux image (see *Linux window* below):
+
+```bash
+L='docker run --rm -v "$PWD":/work -w /work -v uuob-target-linux:/work/target uuob-linux:1'
+$L sh -c 'cargo run -p uuob-core --example seed -- target/demo && docker/shoot.sh target/demo shots/demo 1280x820 dark'
+$L docker/shoot-photos.sh shots/photos      # UUOB and Photos side by side (needs Photos built from its repository, see the script)
 ```
 
 ### macOS
 
-The Mac app can't be built on Linux, so GitHub builds it (`.github/workflows/mac.yml`, the same file in every app's repository):
+The Mac app can't be built on Linux, so GitHub builds it (`.github/workflows/mac.yml`, the same file in
+every app's repository; for UUOB it runs `mac/build.sh`, and takes a screenshot of each screen):
 
 ```bash
 gh workflow run mac.yml          # then: gh run download <run id> -n mac
 ```
 
-It isn't signed with an Apple developer account, so macOS asks for
-confirmation the first time it is opened.
+On a Mac with Xcode, `mac/build.sh` builds `UUOB.app` directly. It needs macOS 14 or newer. It isn't
+signed with an Apple developer account, so macOS asks for confirmation the first time it is opened.
+
+### Linux window
+
+```bash
+docker build -t uuob-linux:1 -f docker/linux.Dockerfile docker
+docker run --rm -v "$PWD":/work -w /work -v uuob-target-linux:/work/target uuob-linux:1 cargo build -p uuob-linux
+```
+
+It needs Libadwaita 1.5 or newer (Debian 13, Ubuntu 24.04, Fedora 40), so plain `cargo build` leaves it
+out. It keeps its data where the `uuob` command finds it (`~/.local/share/app.uuob`).
 
 ### Android
 
 ```bash
-docker/android.sh sh -c "cd app && npx tauri android build --apk --debug --target x86_64"   # an emulator build
-docker/emulator.sh start                                                                    # headless emulator (KVM)
-docker exec uuob-emu adb install -r app/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+docker/android.sh docker/apk.sh x86_64        # an emulator build, signed, in dist/
+docker/emulator.sh start                       # headless emulator (KVM)
+docker exec uuob-emu adb install -r dist/UUOB-<version>-x86_64.apk
 docker/emulator.sh shot shots/phone.png
 ```
 
-`docker/android.sh docker/apk.sh` leaves a signed arm64 build for real phones in `dist/` (signed with the persisted key in the `uuob-android-keys` volume, so updates install over each other). To try sync from the command line, run a headless peer: `cargo run -p uuob-core --example peer -- <dir> invite`, then enter the printed code on the phone.
+`android/build.sh` builds the core for the phone, writes its Kotlin bindings and runs Gradle;
+`docker/android.sh docker/apk.sh` runs it and leaves a signed arm64 build for real phones in `dist/` (signed with the persisted key in the `uuob-android-keys` volume, so updates install over each other). To try sync from the command line, run a headless peer: `cargo run -p uuob-core --example peer -- <dir> invite`, then enter the printed code on the phone.
 
 ### Starting by itself
 
@@ -82,7 +103,7 @@ and you choose:
 - **Computers:** *Devices → This computer → Start at login* starts UUOB in the
   background (tray / menu bar, no window) when you log in. It is a LaunchAgent
   on a Mac and an autostart entry on Linux, both pointing at the app with
-  `--hidden` (`set_autostart` in `app/src-tauri/src/lib.rs`).
+  `--hidden` (`autostart` in `crates/uuob-app/src/lib.rs`).
 - **Servers:** `uuob autostart on|off` (below).
 - **Phones:** *Devices → This phone → Start when the phone turns on* starts
   UUOB in the background (just its notification) once the phone is unlocked
@@ -127,12 +148,18 @@ docker exec uuob uuob join 42-amber-river-falcon
 Each app updates itself; UUOB is not involved. An app says where its updates
 are published in its own `tauri.conf.json` (`plugins.updater`: an address and
 the public key they are signed with), so another author publishes and signs
-their own. UUOB, Tasks, Calendar and Photos share `crates/uuob-update` and the button in
+their own. Tasks, Calendar and Photos share `crates/uuob-update` and the button in
 `ui/Update.svelte`: on computers it is Tauri's updater, on Android the same
 feed and signatures with the system installer.
 
-To publish a new version, raise `version` in `app/src-tauri/tauri.conf.json`,
-commit, push, and run:
+UUOB updates itself the same way, from the same feed format and key
+(`crates/uuob-app/src/update.rs`): on a Mac the signed `.app.tar.gz` replaces
+`UUOB.app`, on Android the signed APK goes to the system installer. Its
+version is in `crates/uuob-app/Cargo.toml`; the Mac and Android builds read it
+from there.
+
+To publish a new version, raise the version (UUOB: `crates/uuob-app/Cargo.toml`;
+an app: `app/src-tauri/tauri.conf.json`), commit, push, and run:
 
 ```bash
 docker/release.sh          # in an app's repository: uuob/docker/release.sh

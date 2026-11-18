@@ -2,21 +2,8 @@
   "name": "uuob",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build": "vite build",
-    "dev": "vite",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "2.12.4",
-    "@tauri-apps/plugin-opener": "2.7.2",
-    "jsqr": "1.4.0",
-    "qrcode-generator": "2.0.4"
-  },
+  "description": "Node is only used here to sign releases (Tauri's signer, see docker/apk.sh and docker/release.sh) and to test the app SDK in ui/.",
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "7.3.1",
-    "@tauri-apps/cli": "2.12.4",
-    "svelte": "5.57.3",
-    "vite": "8.3.8"
+    "@tauri-apps/cli": "2.12.4"
   }
 }

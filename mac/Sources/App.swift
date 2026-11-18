@@ -128,6 +128,8 @@ final class Shell {
         }
         await refresh()
         await loadAsks()
+        // The screens may have loaded before UUOB was running: now they can.
+        tick += 1
         checkUpdate()
         for await e in Core.events() {
             lastEvent = e

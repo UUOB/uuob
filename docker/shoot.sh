@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Inside the dev container: run the app headless and take screenshots.
+# In the Linux image (docker/linux.Dockerfile): run UUOB's window headless and take screenshots.
 #   docker/shoot.sh <data-dir> <out-prefix> [WxH] [dark|light] [click-x,click-y ...]
 # Each click is followed by a screenshot <out-prefix>-N.png.
 set -euo pipefail
@@ -9,7 +9,7 @@ export DISPLAY=:99 NO_AT_BRIDGE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS
 Xvfb :99 -screen 0 ${SIZE}x24 >/dev/null 2>&1 &
 sleep 1
 W=${SIZE%x*}; H=${SIZE#*x}
-UUOB_DATA_DIR=$DATA ./target/debug/uuob-app >/tmp/app.log 2>&1 &
+UUOB_DATA_DIR=$DATA ./target/debug/uuob-window >/tmp/app.log 2>&1 &
 APP=$!
 for i in $(seq 1 60); do WID=$(xdotool search --name '^UUOB$' 2>/dev/null | head -1 || true); [ -n "$WID" ] && break; sleep 0.5; done
 xdotool windowmove "$WID" 0 0 windowsize "$WID" "$W" "$H"

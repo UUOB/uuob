@@ -13,6 +13,7 @@
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSLocalNetworkUsageDescription</key><string>UUOB finds your other devices on this network, so they sync directly with each other.</string>
   <key>NSHumanReadableCopyright</key><string>GNU AGPL 3.0 or later</string>
 </dict>
 </plist>

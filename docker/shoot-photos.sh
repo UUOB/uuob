@@ -23,7 +23,7 @@ UUOB_SEED_PHOTOS=$PICS cargo run -q -p uuob-core --example seed -- "$DATA" >/dev
 export DISPLAY=:99 NO_AT_BRIDGE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1 GTK_THEME=Adwaita:dark
 Xvfb :99 -screen 0 2300x900x24 >/dev/null 2>&1 &
 sleep 1
-UUOB_DATA_DIR=$DATA ./target/debug/uuob-app >/tmp/uuob.log 2>&1 &
+UUOB_DATA_DIR=$DATA ./target/debug/uuob-window >/tmp/uuob.log 2>&1 &
 win() { for _ in $(seq 1 80); do w=$(xdotool search --name "^$1\$" 2>/dev/null | head -1 || true); [ -n "$w" ] && { echo "$w"; return; }; sleep 0.5; done; }
 U=$(win UUOB); xdotool windowmove "$U" 0 0 windowsize "$U" 1000 900
 sleep 3
