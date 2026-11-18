@@ -2,7 +2,7 @@
 
 **Your data lives on your devices. Apps just plug in.**
 
-UUOB (Universal User-Owned Backend) links your own devices, like your Mac, your phone or a Raspberry Pi,
+UUOB (Universal User-Owned Backend) links your own devices, like your Mac, your phone or a home server,
 into one private network. Apps keep their data there instead of on some company's servers.
 
 **[Get started](docs/setup.md)** · **[Downloads](https://github.com/jachymri/uuob-releases)**
@@ -57,7 +57,7 @@ UUOB itself also shows alerts from these apps on your phones and computers, and 
 
 - **Mac** (Apple silicon and Intel)
 - **Android** phones
-- **Linux** servers and the **Raspberry Pi**, without a window
+- **Linux**, including servers (it runs without a window)
 
 ## Learn more
 

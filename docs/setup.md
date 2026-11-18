@@ -8,8 +8,8 @@ It takes about five minutes:
 
 Downloads for everything: **[github.com/jachymri/uuob-releases](https://github.com/jachymri/uuob-releases)**
 
-> **Tip:** UUOB only syncs while it runs. One device that is usually on, such as a Mac, a home server or a
-> Raspberry Pi, keeps your devices in sync even when the others are off.
+> **Tip:** UUOB only syncs while it runs. One device that is usually on, such as a Mac or a home server,
+> keeps your devices in sync even when the others are off.
 
 ## 1. Install UUOB
 
@@ -43,10 +43,10 @@ then come through F-Droid.
 https://jachymri.github.io/uuob-releases/fdroid/repo?fingerprint=3BE594965991D33F960870832B42EC62690731D45EEB13158B7C2A732A12ABA8
 ```
 
-### Linux and headless servers (Raspberry Pi)
+### Linux and headless servers
 
-On Linux, UUOB runs as a command with no window. That suits a home server or a Raspberry Pi
-(Raspberry Pi OS 12, Debian 12 or newer, on ARM or Intel/AMD). It keeps your data and syncs it; the apps
+On Linux, UUOB runs as a command with no window. That suits a home server
+(Debian 12 or newer, on ARM or Intel/AMD). It keeps your data and syncs it; the apps
 themselves (Tasks, Calendar, Photos) are for Mac and Android.
 
 1. Install it with one line. It asks whether UUOB should start by itself when the computer turns on.
