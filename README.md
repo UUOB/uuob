@@ -56,7 +56,7 @@ with today and tomorrow.
 
 ## Runs on
 
-- **Mac** (Apple silicon and Intel)
+- **Mac** (Apple silicon and Intel, macOS 14 or newer)
 - **Android** phones
 - **Linux**, including servers (it runs without a window)
 

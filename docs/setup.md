@@ -15,7 +15,7 @@ Downloads for everything: **[github.com/jachymri/uuob-releases](https://github.c
 
 ### Mac
 
-1. Download **UUOB for Mac** (it works on Apple silicon and Intel Macs).
+1. Download **UUOB for Mac** (Apple silicon and Intel Macs, macOS 14 Sonoma or newer).
 2. Open the file and drag UUOB into **Applications**.
 3. The first time you open it, macOS blocks it, because the app isn't signed with a paid Apple account.
    Go to **System Settings → Privacy & Security** and click **Open Anyway**.
