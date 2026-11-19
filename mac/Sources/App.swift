@@ -16,7 +16,7 @@ struct UUOBApp: App {
             Button("Quit UUOB") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
         .commands {
-            // Every screen from the menu bar and the keyboard: Go → Devices (⌘1) …
+            // Every screen from the menu bar and the keyboard: Go → Network (⌘1) …
             CommandMenu("Go") {
                 ForEach(Array(Screen.allCases.enumerated()), id: \.element) { i, s in
                     Button(s.rawValue) {
@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.setFrameAutosaveName("main")
         self.window = window
         shell.onAskHere = { [weak self] in self?.showWindow() }
-        // Started at login (see Devices → Start at login) UUOB stays in the menu bar.
+        // Started at login (see Settings → Start at login) UUOB stays in the menu bar.
         if !CommandLine.arguments.contains("--hidden") { showWindow() }
         Task { await shell.run() }
     }
@@ -80,8 +80,8 @@ final class Shell {
     /// Offers put aside until UUOB is opened again.
     var later: Set<String> = []
     var serverError: String?
-    /// The screen in the window. UUOB_SCREEN=people opens on that one (the screenshots in mac.yml).
-    var screen: Screen? = Screen.allCases.first { "\($0)" == ProcessInfo.processInfo.environment["UUOB_SCREEN"] } ?? .devices
+    /// The screen in the window. UUOB_SCREEN=access opens on that one (the screenshots in mac.yml).
+    var screen: Screen? = Screen.allCases.first { "\($0)" == ProcessInfo.processInfo.environment["UUOB_SCREEN"] } ?? .network
     /// Bumped on network changes, so screens reload.
     var tick = 0
     /// The latest change, for a screen waiting for one (a device joining).

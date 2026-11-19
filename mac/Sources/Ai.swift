@@ -1,7 +1,10 @@
 import SwiftUI
 
+/// One AI (Access → an AI): what it may read and write, app by app.
 struct AiView: View {
+    let only: String
     @Environment(Shell.self) private var shell
+    @Environment(\.dismiss) private var dismiss
     @State private var clients: [(key: String, value: J)] = []
     @State private var containers: [J] = []
     @State private var url = ""
@@ -9,7 +12,7 @@ struct AiView: View {
     @State private var removing: (key: String, value: J)?
 
     private func load() async {
-        clients = ((try? await Core.call("clients"))?.entries ?? []).filter { $0.value.app.isNull }
+        clients = ((try? await Core.call("clients"))?.entries ?? []).filter { $0.value.app.isNull && $0.key == only }
         containers = (try? await Core.call("containers"))?.array ?? []
         url = (try? await Core.call("mcp_url"))?.string ?? ""
     }
@@ -25,16 +28,6 @@ struct AiView: View {
 
     var body: some View {
         Form {
-            Section {
-                EmptyView()
-            } header: {
-                Lead("Let an AI assistant (Claude, or any app that supports MCP) work with your data. It sees only what you allow, app by app. Nothing by default.")
-            }
-            if clients.isEmpty {
-                Section {
-                    ContentUnavailableView("No AI connected", systemImage: "sparkles", description: Text("Connect one, then choose exactly which data it may read or change."))
-                }
-            }
             ForEach(clients, id: \.key) { client in
                 Section {
                     HStack(spacing: 12) {
@@ -59,23 +52,13 @@ struct AiView: View {
                     }
                 }
             }
-            Section {
-                HStack {
-                    Button("Connect an AI…") { connecting = true }.buttonStyle(.borderedProminent)
-                    Spacer()
-                }
-            } footer: {
-                Text("Server: \(url) · only reachable from this Mac").foregroundStyle(.secondary).textSelection(.enabled)
-            }
         }
         .formStyle(.grouped)
-        .navigationTitle("AI access")
-        .toolbar {
-            ToolbarItem {
-                Button { connecting = true } label: { Label("Connect an AI", systemImage: "plus") }.help("Connect an AI")
-            }
+        .navigationTitle(clients.first?.value.name.string ?? "")
+        .task(id: shell.tick) {
+            await load()
+            if clients.isEmpty { dismiss() }
         }
-        .task(id: shell.tick) { await load() }
         .sheet(isPresented: $connecting, onDismiss: { Task { await load() } }) { ConnectAiSheet(url: url) }
         .alert("Disconnect “\(removing?.value.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Disconnect", role: .destructive) {

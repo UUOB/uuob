@@ -19,8 +19,12 @@ private struct AppGroup: Identifiable {
     var parts: [J] { cs.filter { $0.id != id } }
 }
 
+/// One app (Access → an app): its data, who can access it, its copies on
+/// devices without UUOB; disconnecting it or deleting its data.
 struct AppsView: View {
+    let only: String
     @Environment(Shell.self) private var shell
+    @Environment(\.dismiss) private var dismiss
     @State private var groups: [AppGroup] = []
     @State private var keepers = 0
     @State private var needed = 1
@@ -34,7 +38,7 @@ struct AppsView: View {
         keepers = ((try? await Core.call("devices"))?.array ?? []).filter(\.keeper.bool).count
         needed = max(1, (try? await Core.call("status"))?.network.copies.int ?? 1)
         var seen: [String] = []
-        for c in containers.array where !seen.contains(c.owner_app.string) { seen.append(c.owner_app.string) }
+        for c in containers.array where c.owner_app.string == only && !seen.contains(c.owner_app.string) { seen.append(c.owner_app.string) }
         groups = seen.map { id in
             AppGroup(id: id, name: apps[id].name.str ?? id, installed: apps[id].installed.bool,
                      cs: containers.array.filter { $0.owner_app.string == id },
@@ -57,22 +61,6 @@ struct AppsView: View {
 
     var body: some View {
         Form {
-            Section {
-                EmptyView()
-            } header: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Lead("Apps like Tasks and Calendar keep their data here, each in its own place, synced to all your devices. An app sees only its own data unless you allow more.")
-                    Text("To share a list or a calendar with someone, open it in its app and choose Share.").font(.callout).foregroundStyle(.secondary).textCase(nil)
-                }
-            }
-
-            if groups.isEmpty {
-                Section {
-                    ContentUnavailableView("No apps yet", systemImage: "square.grid.2x2",
-                                           description: Text("Install an app like Tasks or Calendar on this Mac and open it. It will ask to connect. On a device without UUOB, the app connects with a code."))
-                }
-            }
-
             ForEach(groups) { g in
                 Section {
                     HStack(spacing: 12) {
@@ -144,13 +132,12 @@ struct AppsView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Apps")
-        .toolbar {
-            ToolbarItem {
-                Button { coding = true } label: { Label("Connect with a Code", systemImage: "plus") }.help("Connect an app with a code")
-            }
+        .navigationTitle(groups.first?.name ?? "")
+        .task(id: shell.tick) {
+            await load()
+            // Disconnected with its data deleted: nothing left to show.
+            if groups.isEmpty { dismiss() }
         }
-        .task(id: shell.tick) { await load() }
         .sheet(isPresented: $coding, onDismiss: { Task { await load() } }) { AppCodeSheet() }
         .confirmationDialog("Disconnect \(disconnecting?.name ?? "")?", isPresented: Binding(get: { disconnecting != nil }, set: { if !$0 { disconnecting = nil } }), presenting: disconnecting) { g in
             Button("Keep the Data") { uninstall(g, delete: false) }

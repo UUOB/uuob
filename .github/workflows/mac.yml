@@ -28,10 +28,11 @@ jobs:
         if: hashFiles('mac/build.sh') != ''
         continue-on-error: true
         run: |
-          # Throwaway data: each screen once, light and dark.
+          # Demo data (a few apps, an AI, a person, a storage device): each screen once, light and dark.
+          cargo run -q -p uuob-core --example seed -- "$RUNNER_TEMP/uuob"
           for mode in light dark; do
             [ $mode = dark ] && osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true' || true
-            for s in devices people apps ai; do
+            for s in network access settings; do
               UUOB_DATA_DIR="$RUNNER_TEMP/uuob" UUOB_SCREEN=$s mac/build/UUOB.app/Contents/MacOS/UUOB & pid=$!
               sleep 8; screencapture -x "out/shot-$mode-$s.png"; kill $pid; sleep 1
             done

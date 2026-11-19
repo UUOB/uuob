@@ -26,7 +26,7 @@ struct AskSheet: View {
                     Text("It gets its own place for its data, synced to all your devices. It can’t see anything else unless you allow it.").foregroundStyle(.secondary)
                 } else {
                     Text("“\(ask.app_name.string)” wants to \(ask.access.string == "write" ? "read and change" : "read") your \(ask.container_name.string) data").font(.title2.weight(.semibold))
-                    Text("You can change this any time in Apps.").foregroundStyle(.secondary)
+                    Text("You can change this any time in Access.").foregroundStyle(.secondary)
                 }
             }
             .multilineTextAlignment(.center)
@@ -122,7 +122,7 @@ struct ShareSheet: View {
                     someoneNew()
                 }, cancel: back)
             case .new:
-                SheetFrame(title: "Share with someone new", lead: "They open UUOB on their device, go to People → Enter a code and type this.", center: true) {
+                SheetFrame(title: "Share with someone new", lead: "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", center: true) {
                     Picker("", selection: Binding(get: { access }, set: { access = $0; newInvite() })) {
                         Text("Can view").tag("read")
                         Text("Can edit").tag("write")

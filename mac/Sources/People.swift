@@ -2,8 +2,11 @@ import SwiftUI
 
 private func can(_ access: String) -> String { access == "write" ? "Can edit" : "Can view" }
 
+/// One person (Access → a person): what you share with each other.
 struct PeopleView: View {
+    let only: String
     @Environment(Shell.self) private var shell
+    @Environment(\.dismiss) private var dismiss
     @State private var me = ""
     @State private var naming = false
     /// What to open once the name is set.
@@ -40,27 +43,7 @@ struct PeopleView: View {
 
     var body: some View {
         Form {
-            Section {
-                if !me.isEmpty {
-                    HStack(spacing: 12) {
-                        Avatar(name: me, mine: true)
-                        TwoLines(title: me, detail: "You · the name other people see")
-                        Spacer()
-                        Button("Change…") { afterName = nil; naming = true }
-                    }
-                }
-            } header: {
-                Lead("Share a list or a calendar with someone who has their own UUOB. They see only what you share with them. Everything else stays private.")
-            }
-
-            if shell.people.isEmpty {
-                Section {
-                    ContentUnavailableView("No people yet", systemImage: "person.2",
-                                           description: Text("Link with a partner, a family member or a colleague. Then share a list or a calendar with them from Tasks or Calendar."))
-                }
-            }
-
-            ForEach(shell.people) { p in
+            ForEach(shell.people.filter { $0.id == only }) { p in
                 Section {
                     HStack(spacing: 12) {
                         Avatar(name: p.name.string)
@@ -116,21 +99,11 @@ struct PeopleView: View {
                 }
             }
 
-            Section {
-                HStack {
-                    Button("Add a Person…") { start(.add) }.buttonStyle(.borderedProminent)
-                    Button("Enter a Code…") { start(.meet) }
-                }
-            }
         }
         .formStyle(.grouped)
-        .navigationTitle("People")
-        .toolbar {
-            ToolbarItem {
-                Button { start(.add) } label: { Label("Add a Person", systemImage: "person.badge.plus") }.help("Add a person")
-            }
-        }
+        .navigationTitle(shell.people.first { $0.id == only }?.name.string ?? "")
         .task(id: shell.tick) { await load() }
+        .onChange(of: shell.people.contains { $0.id == only }) { _, here in if !here { dismiss() } }
         .sheet(isPresented: $naming) {
             NameSheet(current: afterName == nil ? me : "", continues: afterName != nil) { name in
                 try await Core.call("set_name", ["name": name])
@@ -208,7 +181,7 @@ struct AddPersonSheet: View {
             if let linked {
                 Success(title: "Linked with \(linked)", text: "Nothing is shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.") { dismiss() }
             } else if let invite {
-                SheetFrame(title: "Add a person", lead: "They open UUOB on their device, go to People → Enter a code and type this.", center: true) {
+                SheetFrame(title: "Add a person", lead: "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", center: true) {
                     CodeView(invite: invite, waiting: "Waiting for them…").padding(.vertical, 8)
                     Text("This links the two of you. It doesn’t share anything, and it doesn’t add them to your devices.")
                         .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -244,7 +217,7 @@ struct MeetSheet: View {
     @State private var error: String?
 
     var body: some View {
-        SheetFrame(title: "Enter a code", lead: "Ask the other person to open People → Add a person in their UUOB (or to share something with someone new), and type the code they see.") {
+        SheetFrame(title: "Enter a code", lead: "Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.") {
             TextField("e.g. 42 amber river falcon", text: $code).textFieldStyle(.roundedBorder).font(.title3).autocorrectionDisabled().onSubmit(meet)
             if let error { Text(error).foregroundStyle(.red) }
             Text("Your devices and data stay your own. You see only what they share with you.").font(.callout).foregroundStyle(.secondary)

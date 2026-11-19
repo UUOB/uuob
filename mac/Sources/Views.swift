@@ -1,4 +1,4 @@
-// The window: a sidebar with the four screens, and what floats over them
+// The window: a sidebar with the three screens, and what floats over them
 // (questions from apps, offers from people, toasts).
 
 import AppKit
@@ -6,14 +6,13 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 enum Screen: String, CaseIterable, Identifiable, Hashable {
-    case devices = "Devices", people = "People", apps = "Apps", ai = "AI access"
+    case network = "Network", access = "Access", settings = "Settings"
     var id: Self { self }
     var icon: String {
         switch self {
-        case .devices: "laptopcomputer.and.iphone"
-        case .people: "person.2"
-        case .apps: "square.grid.2x2"
-        case .ai: "sparkles"
+        case .network: "point.3.connected.trianglepath.dotted"
+        case .access: "checkmark.shield"
+        case .settings: "gearshape"
         }
     }
 }
@@ -54,11 +53,10 @@ struct ContentView: View {
             }
         } detail: {
             Group {
-                switch shell.screen ?? .devices {
-                case .devices: DevicesView()
-                case .people: PeopleView()
-                case .apps: AppsView()
-                case .ai: AiView()
+                switch shell.screen ?? .network {
+                case .network: NetworkView()
+                case .access: AccessView()
+                case .settings: SettingsView()
                 }
             }
             .safeAreaInset(edge: .top) {
@@ -104,7 +102,7 @@ struct ContentView: View {
     }
 
     private func badge(_ s: Screen) -> Int {
-        if s == .people { return shell.offers.count }
+        if s == .access { return shell.offers.count + shell.asks.count }
         return 0
     }
 }
@@ -128,11 +126,11 @@ struct Dot: View {
 }
 
 /// Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular.
+/// The colour is the same on every platform: FNV-1a of the id (crates/uuob-app/src/screens.rs `tint`).
 func appColor(_ app: String) -> Color {
     let colors: [Color] = [.blue, .red, .orange, .green, .purple, .pink, .teal, .indigo]
-    // A stable hash (Swift's own changes every launch).
-    let hash = app.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0x7fffffff }
-    return colors[hash % colors.count]
+    let hash = app.utf8.reduce(UInt32(0x811c9dc5)) { ($0 ^ UInt32($1)) &* 0x01000193 }
+    return colors[Int(hash % UInt32(colors.count))]
 }
 
 struct AppTile: View {
