@@ -34,7 +34,9 @@ jobs:
             [ $mode = dark ] && osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true' || true
             for s in network access settings; do
               UUOB_DATA_DIR="$RUNNER_TEMP/uuob" UUOB_SCREEN=$s mac/build/UUOB.app/Contents/MacOS/UUOB & pid=$!
-              sleep 8; screencapture -x "out/shot-$mode-$s.png"; kill $pid; sleep 1
+              # Escape: "Later" for the demo's share offer, and no to the runner's local network prompt.
+              sleep 8; for k in 1 2; do osascript -e 'tell application "System Events" to key code 53' || true; sleep 1; done
+              screencapture -x "out/shot-$mode-$s.png"; kill $pid; sleep 1
             done
           done
       - name: Build the app
