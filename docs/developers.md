@@ -95,6 +95,30 @@ docker/emulator.sh shot shots/phone.png
 `android/build.sh` builds the core for the phone, writes its Kotlin bindings and runs Gradle;
 `docker/android.sh docker/apk.sh` runs it and leaves a signed arm64 build for real phones in `dist/` (signed with the persisted key in the `uuob-android-keys` volume, so updates install over each other). To try sync from the command line, run a headless peer: `cargo run -p uuob-core --example peer -- <dir> invite`, then enter the printed code on the phone.
 
+### Widgets and alerts on Android
+
+An app can't keep time or hear about changes while it's closed, so UUOB on the phone does it and hands
+each app what is its own, for the app to show as its own widget and notifications. Any app you allowed
+gets this, whoever built it (see *UUOB guards the data* in [the idea](idea.md)). Calendar is the worked
+example (`Upcoming.kt`, `Alert.kt` in its repository).
+
+1. **Say which Android app you are.** The SDK does it by itself after connecting (`android { package }`
+   on `/api/call`); the app's Tauri capabilities need `core:app:allow-identifier` for it. UUOB binds the package to that connection; the first time it delivers, it remembers the
+   package's signing certificate and from then on delivers only to an app with that certificate. A package
+   belongs to one app, and disconnecting the app ends the binding.
+2. **Declare the receivers** (exported, no permission):
+   - `app.uuob.UPCOMING`: extra `list`, `{ hour12, items }` with only this app's items (what it gave
+     `uuob.upcoming`), whenever it changes. Keep it, so a widget can draw while the app is closed.
+   - `app.uuob.SHOW_ALERT`: extras `key` (tells alerts apart), `title` and `text`, when an alert is due.
+     Show it as the app's own notification.
+3. **Check the sender.** Anyone can send to an exported receiver, so act only on intents from UUOB: each
+   one carries `from`, a `PendingIntent` that UUOB created, and Android vouches for its creator:
+   `intent.getParcelableExtra<PendingIntent>("from")?.creatorPackage == "app.uuob"`. Only apps the user
+   allowed ever get one, so this keeps out every other app; an allowed app could still pass one on.
+4. **Ask when you have nothing** (a new install, a widget just added): send `app.uuob.SEND_UPCOMING` to
+   `app.uuob/app.uuob.AskReceiver`. UUOB resends each allowed app its own list. (To see UUOB at all, the
+   app's manifest lists the `uuob` scheme under `<queries>`, as it does anyway to open UUOB for the user.)
+
 ### Starting by itself
 
 UUOB only helps while it runs, so each kind of device can start it for you,

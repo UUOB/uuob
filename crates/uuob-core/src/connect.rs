@@ -215,4 +215,66 @@ impl Node {
         let app_name = self.read_net(|d| net::apps(d).get(app).map(|a| a.name.clone())).unwrap_or_else(|| app.clone());
         Ok(self.ask(Ask::Share { app: app.clone(), app_name, container: container.into(), container_name: c.name }).await)
     }
+
+    /// An app on this device says which Android app it is (`package`), so
+    /// UUOB on this phone may hand it its alerts and widget data. The binding
+    /// is to the app's connection (`token`), kept on this device only (another
+    /// phone is another install), and counts only while that connection
+    /// exists: disconnecting the app, on any device, ends it. A package
+    /// belongs to one app.
+    pub fn set_android_package(&self, token: &str, package: &str) -> Result<()> {
+        let valid = package.len() <= 255
+            && package.split('.').count() >= 2
+            && package.split('.').all(|p| p.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+        if !valid {
+            return Err(Error::Invalid(format!("not an Android package name: {package}")));
+        }
+        let hash = crypto::sha256_hex(token.as_bytes());
+        let clients = self.read_net(net::clients);
+        let (id, app) = clients
+            .iter()
+            .find_map(|(id, c)| (c.token_sha256 == hash && c.endpoint.is_none()).then(|| c.app.clone().map(|a| (id.clone(), a))).flatten())
+            .ok_or_else(|| Error::PermissionDenied("only an app on this device can say which Android app it is".into()))?;
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _lock = LOCK.lock().unwrap();
+        let mut bound = self.android_bindings();
+        if let Some(other) = bound.get(package).and_then(|cid| clients.get(cid)).and_then(|c| c.app.as_deref()) {
+            if other != app {
+                return Err(Error::PermissionDenied(format!("{package} belongs to another app")));
+            }
+        }
+        if bound.get(package) == Some(&id) {
+            return Ok(());
+        }
+        bound.retain(|_, cid| clients.contains_key(cid));
+        bound.insert(package.into(), id);
+        let path = self.android_file();
+        std::fs::write(&path, serde_json::to_vec(&bound).map_err(anyhow::Error::from)?)?;
+        // What is coming up goes out again, now to this app too.
+        let _ = self.0.events.send(crate::node::Event::NetworkChanged);
+        Ok(())
+    }
+
+    /// Android packages of the connected apps on this device:
+    /// app id → (package → the connection it is bound to).
+    pub fn android_packages(&self) -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>> {
+        let clients = self.read_net(net::clients);
+        let mut out: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>> = Default::default();
+        for (package, cid) in self.android_bindings() {
+            if let Some(app) = clients.get(&cid).and_then(|c| c.app.clone()) {
+                out.entry(app).or_default().insert(package, cid);
+            }
+        }
+        out
+    }
+
+    /// package → connection id, as kept in `<data dir>/android.json`.
+    fn android_bindings(&self) -> std::collections::BTreeMap<String, String> {
+        std::fs::read(self.android_file()).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+    }
+
+    fn android_file(&self) -> std::path::PathBuf {
+        // Next to the files folder, in the data dir.
+        self.0.files_dir.with_file_name("android.json")
+    }
 }

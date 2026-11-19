@@ -539,3 +539,52 @@ async fn raw_try(port: u16) -> Option<()> {
     stream.read_to_end(&mut out).await.ok()?;
     Some(())
 }
+
+/// An app on this device says which Android app it is: one package per app,
+/// bound to the connection, gone when the app is disconnected.
+#[tokio::test]
+async fn apps_bind_their_android_package() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let node = Node::open(Config {
+        data_dir: dir.path().into(),
+        device_name: "Phone".into(),
+        platform: "android".into(),
+        net: NetMode::Local(MemoryLookup::new()),
+        keystore: None,
+    })
+    .await
+    .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(axum::serve(listener, uuob_api::router(node.clone())).into_future());
+    let connect = |app: &'static str| {
+        let node = node.clone();
+        async move {
+            let code = node.create_app_code().await.unwrap().code;
+            let (_, r) = http(port, "POST", "/api/connect", "", Some(json!({"app": app, "name": app, "code": code}))).await;
+            r["token"].as_str().unwrap().to_string()
+        }
+    };
+    let bind = |token: String, package: &'static str| async move {
+        http(port, "POST", "/api/call", &token, Some(json!({"method": "android", "params": {"package": package}}))).await.0
+    };
+
+    let tasks = connect("tasks").await;
+    assert_eq!(bind(tasks.clone(), "org.example.tasks").await, 200);
+    assert_eq!(bind(tasks.clone(), "org.example.tasks").await, 200, "saying it again is fine");
+    let first = node.android_packages()["tasks"]["org.example.tasks"].clone();
+    // Another app can't take that package, and a package must be a package.
+    let calendar = connect("calendar").await;
+    assert_eq!(bind(calendar.clone(), "org.example.tasks").await, 403);
+    assert_eq!(bind(calendar, "not a package").await, 400);
+    // Only apps: an AI client is refused.
+    let (_, ai) = node.create_client("Claude").unwrap();
+    assert_eq!(bind(ai, "org.example.ai").await, 403);
+
+    // Disconnected: the binding no longer counts. Approved again: a new connection.
+    node.uninstall_app("tasks", false).unwrap();
+    assert!(node.android_packages().get("tasks").is_none());
+    let again = connect("tasks").await;
+    assert_eq!(bind(again, "org.example.tasks").await, 200);
+    assert_ne!(node.android_packages()["tasks"]["org.example.tasks"], first);
+}

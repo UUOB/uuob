@@ -262,6 +262,17 @@ async function follow() {
 // everything that changed meanwhile.
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && token && stream && follow());
 
+// On Android, once per connection: tell UUOB which Android app this is, so
+// UUOB on this phone hands it its own alerts and widget data (UUOB's ToApps.kt).
+async function sayAndroidPackage() {
+  if (remote || !token || !/Android/.test(navigator.userAgent)) return;
+  const key = `uuob.android.${app.id}`;
+  if (localStorage.getItem(key) === token.slice(-8)) return;
+  const { getIdentifier } = await import('@tauri-apps/api/app');
+  await request('/call', { method: 'android', params: { package: await getIdentifier() } });
+  localStorage.setItem(key, token.slice(-8));
+}
+
 export const uuob = {
   /** Who this app is. Call once, first. */
   init(manifest) {
@@ -302,6 +313,7 @@ export const uuob = {
       return e.code === 'unreachable' ? 'unreachable' : 'disconnected';
     }
     if (!stream) follow();
+    sayAndroidPackage().catch(() => {});
     return 'connected';
   },
 
@@ -323,6 +335,7 @@ export const uuob = {
     store.set(token);
     follow();
     setState('connected');
+    sayAndroidPackage().catch(() => {});
   },
 
   /** How many changes are waiting for UUOB to come back. */

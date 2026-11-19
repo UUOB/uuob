@@ -138,8 +138,9 @@ pub async fn next_event() -> Json {
     answer
 }
 
-/// What is coming up in the user's apps (`Node::upcoming`) and the time
-/// format to show it in, `{ hour12, items }` as JSON, kept current: for the
+/// What is coming up in the user's apps (`Node::upcoming`), the time format
+/// to show it in and the apps' Android packages, `{ hour12, items, packages }`
+/// as JSON, kept current: for the
 /// alerts (`alerts::ring` on computers, `Alerts.kt` on Android) and, on
 /// Android, the apps' own widgets (`ToApps.kt`).
 fn upcoming_now() -> &'static tokio::sync::watch::Sender<String> {
@@ -153,7 +154,8 @@ fn watch_upcoming(node: Node) {
         loop {
             let settings = node.call(&Client::Shell, "settings", Json::Null).await.unwrap_or_default();
             let hour12 = settings["hour12"].as_bool().unwrap_or(false);
-            let json = json!({ "hour12": hour12, "items": node.upcoming() }).to_string();
+            // `packages`: which Android apps may get each app's part (Android's `ToApps.kt`).
+            let json = json!({ "hour12": hour12, "items": node.upcoming(), "packages": node.android_packages() }).to_string();
             upcoming_now().send_if_modified(|v| *v != json && {
                 *v = json.clone();
                 true

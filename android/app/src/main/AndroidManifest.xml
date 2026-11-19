@@ -19,13 +19,9 @@
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
-    <!-- Apps get what is coming up in them, for their widget, and their alerts
-         when due, to show as their own (ToApps.kt). Only apps signed like UUOB
-         hold this. -->
-    <permission
-        android:name="app.uuob.permission.UPCOMING"
-        android:protectionLevel="signature" />
-    <uses-permission android:name="app.uuob.permission.UPCOMING" />
+    <!-- Apps the user allowed get what is coming up in them, for their widget,
+         and their alerts when due, to show as their own (ToApps.kt). UUOB has
+         to see the apps that can receive them. -->
     <queries>
         <intent>
             <action android:name="app.uuob.UPCOMING" />
@@ -103,11 +99,11 @@
             </intent-filter>
         </receiver>
 
-        <!-- An app asking for what is coming up in it, for its widget (ToApps.kt). -->
+        <!-- An app asking for what is coming up in it, for its widget (ToApps.kt).
+             Anyone may ask: UUOB only resends each allowed app its own list. -->
         <receiver
             android:name=".AskReceiver"
-            android:exported="true"
-            android:permission="app.uuob.permission.UPCOMING">
+            android:exported="true">
             <intent-filter>
                 <action android:name="app.uuob.SEND_UPCOMING" />
             </intent-filter>

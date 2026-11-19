@@ -27,3 +27,13 @@ So UUOB stays general and assumes nothing about which apps you have:
 - **The same rules for every app.** Where UUOB helps apps with something they can't do alone (keeping time for alerts while the app is closed, learning of changes made on other devices), it does it through one standard way that any app can use, not through code written for a particular app.
 
 When a feature could live in UUOB or in an app, it belongs in the app. UUOB is the backbone, and the apps are the face.
+
+## UUOB guards the data; allowing an app means trusting it
+
+UUOB's job is to guard your data. Every app sees only what you allowed: its own data, plus anything you agreed to share with it. That is the whole security model, and it is the same for everything that touches your data:
+
+- **Apps.** Allowing an app means trusting it with that data. It doesn't matter who built the app: an app from someone else gets exactly the same as one you wrote, once you allow it. UUOB checks that it hands data only to the app you allowed, and not to another one that took its name.
+- **AI assistants.** They start with nothing and see only the apps you open to them, read or read and write.
+- **People.** They see only the lists and calendars you share with them, and nothing about the rest.
+
+A device that can't run UUOB itself, like an iPhone, doesn't change this. Its apps reach your UUOB on another device that is usually on, such as a home server, through a code you gave them, and get the same guarded view.

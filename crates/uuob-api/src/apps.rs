@@ -9,7 +9,8 @@
 //!   containers, request_access, and for an app's extra containers (one per
 //!   list, calendar, …): create_container, rename_container,
 //!   delete_container, share. For files: files, delete_file (their bytes
-//!   go over `/api/files`, see `files.rs`).
+//!   go over `/api/files`, see `files.rs`). On Android: android { package },
+//!   which app this is, for its alerts and widget data.
 //! - `GET  /api/events`   + bearer token → server-sent events
 //!   `{ "container": id }` when a container the app can read changes
 //!   (`"*"`: reload everything).
@@ -99,6 +100,19 @@ pub(crate) async fn call(State(node): State<Node>, linked: Option<Extension<Link
     // has no UUOB there, and must not change what this device keeps.
     if linked.is_some() && c.method == "keep" {
         return Json(json!({ "result": null })).into_response();
+    }
+    // `android` { package }: which Android app this is, so this phone hands it
+    // its alerts and widget data. Only for an app on this device.
+    if c.method == "android" {
+        let result = match (&linked, c.params["package"].as_str()) {
+            (Some(_), _) => Err(Error::PermissionDenied("this app is not on this device".into())),
+            (None, None) => Err(Error::Invalid("package is required".into())),
+            (None, Some(package)) => node.set_android_package(bearer(&headers), package),
+        };
+        return match result {
+            Ok(()) => Json(json!({ "result": null })).into_response(),
+            Err(e) => error(e),
+        };
     }
     match node.call(&client, &c.method, c.params).await {
         Ok(result) => Json(json!({ "result": result })).into_response(),
