@@ -409,11 +409,6 @@ extension Card where Footer == EmptyView {
     }
 }
 
-extension Card {
-    init(@ViewBuilder content: () -> Content, @ViewBuilder header: () -> Header, @ViewBuilder footer: () -> Footer) {
-        self.content = content(); self.header = header(); self.footer = footer()
-    }
-}
 
 /// `.tag`: "This device", small and blue in a pill.
 struct Tag: View {
