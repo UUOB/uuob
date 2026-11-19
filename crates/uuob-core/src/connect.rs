@@ -159,6 +159,7 @@ impl Node {
         let token = format!("uuob_{}", crypto::random_id(32));
         // A linked app (see `remote.rs`): its endpoint id and its device's name.
         let (endpoint, device) = linked.unzip();
+        let on = endpoint.is_none().then(|| self.0.me.to_string());
         let device = device.map(|d: String| match d.trim() {
             "" => "Another device".to_string(),
             d => d.chars().take(64).collect(),
@@ -170,6 +171,7 @@ impl Node {
             app: Some(m.id.clone()),
             endpoint,
             device,
+            on,
         };
         self.write_net(|d| net::set_client(d, &crypto::random_id(8), &info))?;
         Ok(token)
@@ -276,5 +278,35 @@ impl Node {
     fn android_file(&self) -> std::path::PathBuf {
         // Next to the files folder, in the data dir.
         self.0.files_dir.with_file_name("android.json")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Config, MemoryLookup, NetMode};
+
+    #[tokio::test]
+    async fn connections_remember_their_device() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = Config {
+            data_dir: dir.path().into(),
+            device_name: "Mac".into(),
+            platform: "macos".into(),
+            net: NetMode::Local(MemoryLookup::new()),
+            keystore: None,
+        };
+        let node = Node::open(config).await.unwrap();
+        let me = node.status().device_id;
+        let code = node.create_app_code().await.unwrap().code;
+        let token = node.connect_app(&AppManifest { id: "tasks".into(), name: "Tasks".into() }, Some(&code)).await.unwrap();
+        node.create_client("Claude").unwrap();
+        assert!(node.clients().values().all(|c| c.on.as_deref() == Some(me.as_str())), "apps and AIs: this device");
+
+        // Connected before UUOB recorded where: filled in when its token is used here.
+        let (id, c) = node.clients().into_iter().find(|(_, c)| c.app.is_some()).unwrap();
+        node.write_net(|d| net::set_client(d, &id, &ClientInfo { on: None, ..c })).unwrap();
+        assert!(node.authenticate(&token).is_some());
+        assert_eq!(node.clients()[&id].on.as_deref(), Some(me.as_str()));
     }
 }

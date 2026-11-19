@@ -10,11 +10,13 @@
 //! - `next_event`, which waits for the next change.
 //!
 //! Every method is the node's (`Node::call`) except a few that belong to the
-//! app rather than to the network (see [`local`]).
+//! app rather than to the network (see [`local`]), and `graph` and `access`,
+//! what the Network and Access tabs draw (see `screens.rs`).
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod alerts;
 pub mod ffi;
+mod screens;
 mod update;
 
 uniffi::setup_scaffolding!();
@@ -99,6 +101,16 @@ pub async fn call(method: &str, params: Json) -> Result<Json, (String, &'static 
         .map_err(|e| (e, "unavailable"));
     }
     let node = NODE.get().ok_or(("UUOB hasn’t started yet.".to_string(), "unavailable"))?;
+    // What the Network and Access tabs draw (see `screens.rs`).
+    match method {
+        "graph" => {
+            let open = params["open"].as_array().into_iter().flatten().filter_map(|g| g.as_str().map(String::from)).collect();
+            let width = params["width"].as_f64().unwrap_or(800.0);
+            return Ok(screens::graph(&screens::Input::from_node(node), width, &open));
+        }
+        "access" => return Ok(screens::access(&screens::Input::from_node(node))),
+        _ => {}
+    }
     node.call(&Client::Shell, method, params).await.map_err(|e| (e.to_string(), e.code()))
 }
 

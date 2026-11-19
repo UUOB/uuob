@@ -141,6 +141,11 @@ pub struct ClientInfo {
     /// For such an app: the name of the device it runs on, as the app gave it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device: Option<String>,
+    /// For an app or AI on a device with UUOB: that device's id, so the
+    /// screens can show it there. Connections made before UUOB recorded it
+    /// get it the first time their token is used (`Node::authenticate_from`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<String>,
 }
 
 /// Every entry is a flat root key `<kind>/<id>`, so devices that add entries

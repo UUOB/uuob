@@ -1093,6 +1093,8 @@ impl Node {
             app: None,
             endpoint: None,
             device: None,
+            // An AI uses the MCP server of the device it was set up on.
+            on: Some(self.0.me.to_string()),
         };
         self.write_net(|d| net::set_client(d, &id, &info))?;
         Ok((id, token))
@@ -1133,6 +1135,15 @@ impl Node {
             .read_net(net::clients)
             .into_iter()
             .find(|(_, c)| c.token_sha256 == hash && (linked.is_none() || c.endpoint.as_deref() == linked))?;
+        // Made before UUOB recorded where: it is here, since its token is used here.
+        // (Read again inside the write, so a connection removed meanwhile stays removed.)
+        if c.on.is_none() && c.endpoint.is_none() {
+            let me = self.0.me.to_string();
+            let _ = self.write_net(|d| match net::clients(d).remove(&id) {
+                Some(now) if now.on.is_none() => net::set_client(d, &id, &ClientInfo { on: Some(me), ..now }),
+                _ => Ok(()),
+            });
+        }
         Some(match c.app {
             Some(app) => Client::App(app),
             None => Client::Ai(id),
