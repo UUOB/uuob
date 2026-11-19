@@ -125,12 +125,17 @@ fn local(method: &str, params: &Json) -> Option<Result<Json, String>> {
 /// Meant for one caller, the screen's own loop.
 pub async fn next_event() -> Json {
     let mut events = EVENTS.lock().await;
-    let Some(rx) = events.as_mut() else { return json!({ "type": "not_started" }) };
-    match rx.recv().await {
-        Ok(e) => serde_json::to_value(e).unwrap_or_default(),
-        Err(RecvError::Lagged(_)) => json!({ "type": "lagged" }),
-        Err(RecvError::Closed) => json!({ "type": "closed" }),
-    }
+    let answer = match events.as_mut() {
+        Some(rx) => match rx.recv().await {
+            Ok(e) => return serde_json::to_value(e).unwrap_or_default(),
+            Err(RecvError::Lagged(_)) => return json!({ "type": "lagged" }),
+            Err(RecvError::Closed) => json!({ "type": "closed" }),
+        },
+        None => json!({ "type": "not_started" }),
+    };
+    // Nothing to wait for: don't let the screen's loop spin.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    answer
 }
 
 /// What is coming up in the user's apps (`Node::upcoming`) and the time

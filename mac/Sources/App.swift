@@ -15,6 +15,18 @@ struct UUOBApp: App {
             Divider()
             Button("Quit UUOB") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
+        .commands {
+            // Every screen from the menu bar and the keyboard: Go → Devices (⌘1) …
+            CommandMenu("Go") {
+                ForEach(Array(Screen.allCases.enumerated()), id: \.element) { i, s in
+                    Button(s.rawValue) {
+                        delegate.shell.screen = s
+                        delegate.showWindow()
+                    }
+                    .keyboardShortcut(KeyEquivalent(Character(String(i + 1))))
+                }
+            }
+        }
     }
 }
 
@@ -68,6 +80,8 @@ final class Shell {
     /// Offers put aside until UUOB is opened again.
     var later: Set<String> = []
     var serverError: String?
+    /// The screen in the window. UUOB_SCREEN=people opens on that one (the screenshots in mac.yml).
+    var screen: Screen? = Screen.allCases.first { "\($0)" == ProcessInfo.processInfo.environment["UUOB_SCREEN"] } ?? .devices
     /// Bumped on network changes, so screens reload.
     var tick = 0
     /// The latest change, for a screen waiting for one (a device joining).
@@ -109,7 +123,7 @@ final class Shell {
     func refresh() async {
         if let s = try? await Core.call("status") { status = s }
         if let p = try? await Core.call("people") { people = p.array }
-        serverError = (try? await Core.call("server_error"))?.str
+        if let e = try? await Core.call("server_error") { serverError = e.str }
     }
 
     func loadAsks() async {

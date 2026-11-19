@@ -46,7 +46,7 @@ gives them the SDK, the connect screen, in-app updates and the build scripts bel
 Everything runs in the dev container (`docker/dev.sh` builds it on first use):
 
 ```bash
-docker/dev.sh cargo test --workspace                        # core + API tests
+docker/dev.sh cargo test                                    # core, API and app tests (the Linux window builds in its own image)
 docker/dev.sh cargo test -p uuob-core -- --ignored internet # real relays/discovery
 docker/dev.sh sh -c 'cargo build -p uuob-cli && node ui/uuob.test.mjs'   # the app SDK against a real UUOB
 docker/dev.sh sh -c 'cargo build --release -p uuob-cli && UUOB_BIN=target/release/uuob node docker/stress.mjs'   # 2,000 pictures and a 1 GB video on three devices

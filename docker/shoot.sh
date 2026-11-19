@@ -5,7 +5,8 @@
 set -euo pipefail
 DATA=$1; OUT=$2; SIZE=${3:-1280x820}; THEME=${4:-dark}; shift 4 || true
 export DISPLAY=:99 NO_AT_BRIDGE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1
-[ "$THEME" = dark ] && export GTK_THEME=Adwaita:dark || export GTK_THEME=Adwaita
+# Libadwaita picks light or dark itself (GTK_THEME would replace its styling).
+[ "$THEME" = dark ] && export ADW_DEBUG_COLOR_SCHEME=prefer-dark || export ADW_DEBUG_COLOR_SCHEME=prefer-light
 Xvfb :99 -screen 0 ${SIZE}x24 >/dev/null 2>&1 &
 sleep 1
 W=${SIZE%x*}; H=${SIZE#*x}

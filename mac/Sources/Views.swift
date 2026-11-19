@@ -5,9 +5,9 @@ import AppKit
 import CoreImage.CIFilterBuiltins
 import SwiftUI
 
-enum Screen: String, CaseIterable, Identifiable {
+enum Screen: String, CaseIterable, Identifiable, Hashable {
     case devices = "Devices", people = "People", apps = "Apps", ai = "AI access"
-    var id: String { rawValue }
+    var id: Self { self }
     var icon: String {
         switch self {
         case .devices: "laptopcomputer.and.iphone"
@@ -31,8 +31,6 @@ enum Modal: Identifiable {
 
 struct ContentView: View {
     @Environment(Shell.self) private var shell
-    /// UUOB_SCREEN=people opens on that screen (the screenshots in mac.yml).
-    @State private var screen: Screen? = Screen.allCases.first { "\($0)" == ProcessInfo.processInfo.environment["UUOB_SCREEN"] } ?? .devices
 
     private var modal: Modal? {
         if let a = shell.ask { return a.kind.string == "share" ? .share(a) : .ask(a) }
@@ -42,10 +40,10 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(Screen.allCases, selection: $screen) { s in
-                Label(s.rawValue, systemImage: s.icon)
-                    .badge(badge(s))
-                    .tag(Optional(s))
+            List(Screen.allCases, selection: Bindable(shell).screen) { s in
+                NavigationLink(value: s) {
+                    Label(s.rawValue, systemImage: s.icon).badge(badge(s))
+                }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
             .safeAreaInset(edge: .bottom) {
@@ -56,7 +54,7 @@ struct ContentView: View {
             }
         } detail: {
             Group {
-                switch screen ?? .devices {
+                switch shell.screen ?? .devices {
                 case .devices: DevicesView()
                 case .people: PeopleView()
                 case .apps: AppsView()
