@@ -1,5 +1,8 @@
 package app.uuob
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,28 +89,31 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
     block {
       Section("Devices") {
         devices.forEachIndexed { i, d ->
-          if (i > 0) HorizontalDivider(Modifier.padding(start = 76.dp))
+          if (i > 0) Line()
           val self = d.optBoolean("is_self")
-          ListItem(
+          Item(
             colors = clearItem(),
             leadingContent = {
-              Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(44.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                  Icon(if (d.optString("platform") in setOf("android", "ios")) Icons.Rounded.PhoneAndroid else Icons.Rounded.Laptop, null)
-                }
+              Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                Ico(if (d.optString("platform") in setOf("android", "ios")) "phone" else "laptop", null, size = 24.dp, tint = Look.text2)
               }
             },
-            headlineContent = { Text(d.optString("name")) },
-            supportingContent = {
+            headlineContent = {
               Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(d.optString("name"), Modifier.weight(1f, fill = false), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                if (self) Tag("This device")
+              }
+            },
+            supportingContent = {
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Dot(d.optBoolean("online"))
                 val keeps = if (d.optBoolean("keeper")) " · keeps everything" else ""
-                Text("  ${if (self) "This device" else if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}$keeps")
+                Text("${if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}$keeps")
               }
             },
             trailingContent = {
-              if (self) IconButton(onClick = { sheet = DeviceSheet.Rename }) { Icon(Icons.Rounded.Edit, "Rename") }
-              else IconButton(onClick = { sheet = DeviceSheet.Remove(d) }) { Icon(Icons.Rounded.Delete, "Remove from network") }
+              if (self) IconBtn(onClick = { sheet = DeviceSheet.Rename }) { Ico("edit", "Rename") }
+              else IconBtn(onClick = { sheet = DeviceSheet.Remove(d) }) { Ico("trash", "Remove from network") }
             },
           )
         }
@@ -115,12 +121,12 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
     }
     block {
       Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { sheet = DeviceSheet.Add }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Add, null)
+        UButton(onClick = { sheet = DeviceSheet.Add }, Modifier.fillMaxWidth(), large = true) {
+          Ico("plus", null)
           Text("  Add a device")
         }
-        if (alone) FilledTonalButton(onClick = { sheet = DeviceSheet.Join }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Link, null)
+        if (alone) UTonal(onClick = { sheet = DeviceSheet.Join }, Modifier.fillMaxWidth(), large = true) {
+          Ico("link", null)
           Text("  Join a network")
         }
       }
@@ -144,9 +150,10 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
   }
 }
 
-/** Settings: your name, this phone, storage, updates, leaving the network. */
+/** Settings: your name, this phone, storage, leaving the network. Updates
+ *  come through F-Droid (or the download page), not from UUOB itself. */
 @Composable
-fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) {
+fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
   val ctx = LocalContext.current
   val (devices, loadDevices) = rememberDevices(shell)
   var copies by remember { mutableIntStateOf(1) }
@@ -166,34 +173,34 @@ fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) 
   val alone = devices.size <= 1
   val keepers = devices.count { it.optBoolean("keeper") }
 
-  Page("Settings", "This phone, your storage and updates.", top) {
+  Page("Settings", "This phone and your storage.", top) {
     block {
       Section("You") {
-        ListItem(
+        Item(
           colors = clearItem(),
           leadingContent = { Avatar(me.ifBlank { "?" }, mine = true) },
           headlineContent = { Text(me.ifBlank { "No name yet" }) },
           supportingContent = { Text("The name people you link with see") },
-          trailingContent = { IconButton(onClick = { naming = true }) { Icon(Icons.Rounded.Edit, "Change name") } },
+          trailingContent = { IconBtn(onClick = { naming = true }) { Ico("edit", "Change name") } },
         )
       }
     }
     block {
       Section("This phone") {
-        ListItem(
+        Item(
           colors = clearItem(),
           headlineContent = { Text("Start when the phone turns on") },
           supportingContent = { Text("UUOB starts in the background once you unlock the phone, so your apps and devices stay in sync.") },
-          trailingContent = { Switch(atBoot, onCheckedChange = { BootReceiver.set(ctx, it); atBoot = BootReceiver.isOn(ctx) }) },
+          trailingContent = { Toggle(atBoot) { BootReceiver.set(ctx, it); atBoot = BootReceiver.isOn(ctx) } },
         )
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-        ListItem(
+        Line()
+        Item(
           colors = clearItem(),
           headlineContent = { Text("Apps can connect") },
           supportingContent = { Text(shell.serverError ?: "Only apps on this phone that you allow in Access.") },
           trailingContent = {
             val ok = shell.serverError == null
-            Text(if (ok) "Running" else "Stopped", color = if (ok) Tint.ok else MaterialTheme.colorScheme.error)
+            Text(if (ok) "Running" else "Stopped", color = if (ok) Tint.ok else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
           },
         )
       }
@@ -204,18 +211,20 @@ fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) 
         "Apps with large data, like photos, can keep less on your other devices. Nothing is removed from a device until $who it."
       } else "Turn this on for a device with plenty of space that is usually on. Apps with large data, like photos, can then keep less on your other devices."
       Section("Storage devices", note) {
-        devices.forEach { d ->
+        devices.forEachIndexed { i, d ->
+          if (i > 0) Line()
           val keeper = d.optBoolean("keeper")
-          ListItem(
+          Item(
             colors = clearItem(),
             headlineContent = { Text(d.optString("name")) },
             supportingContent = { Text(if (keeper) "Keeps everything" else "Keeps what its apps ask for") },
             trailingContent = {
-              Switch(keeper, onCheckedChange = { on -> shell.act { Core.call("set_keeper", params("device" to d.optString("id"), "on" to on)); load(); shell.tick++ } })
+              Toggle(keeper) { on -> shell.act { Core.call("set_keeper", params("device" to d.optString("id"), "on" to on)); load(); shell.tick++ } }
             },
           )
         }
-        if (keepers > 0) ListItem(
+        if (keepers > 0) Line()
+        if (keepers > 0) Item(
           colors = clearItem(),
           headlineContent = { Text("Copies") },
           supportingContent = { Text("Storage devices that must have something before another device frees its own copy.") },
@@ -225,25 +234,18 @@ fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) 
         )
       }
     }
-    block {
-      Section("Updates") {
-        ListItem(
-          colors = clearItem(),
-          headlineContent = { Text("UUOB $version") },
-          supportingContent = { Text(updater.version?.let { "Version $it is ready" } ?: "Up to date") },
-          trailingContent = { UpdateButton(updater) },
-        )
-      }
-    }
     if (!alone) block {
       Section("Network") {
-        ListItem(
+        Item(
           colors = clearItem(),
           headlineContent = { Text("Leave this network") },
           supportingContent = { Text("This phone stops syncing with your other devices.") },
-          trailingContent = { TextButton(onClick = { leaving = true }) { Text("Leave", color = MaterialTheme.colorScheme.error) } },
+          trailingContent = { UGhost(onClick = { leaving = true }) { Text("Leave", color = MaterialTheme.colorScheme.error) } },
         )
       }
+    }
+    block {
+      Caption("UUOB $version", Modifier.fillMaxWidth().padding(top = 24.dp), )
     }
   }
 
@@ -258,13 +260,16 @@ fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) 
 @Composable
 private fun Rename(current: String, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
-  AlertDialog(
-    onDismissRequest = onClose,
-    title = { Text("This device’s name") },
-    text = { OutlinedTextField(name, { name = it }, singleLine = true) },
-    confirmButton = { Button(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text("Save") } },
-    dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } },
-  )
+  Sheet(onDismissRequest = onClose) {
+    SheetBody {
+      SheetTitle("This device’s name")
+      Field(name, { name = it }, Modifier.padding(top = 18.dp))
+      Actions {
+        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
+        UButton(onClick = { onSave(name) }, Modifier.weight(1f), enabled = name.isNotBlank(), large = true) { Text("Save") }
+      }
+    }
+  }
 }
 
 /** A code (and QR code) for a new device, until it joins. */
@@ -288,7 +293,7 @@ private fun AddDevice(onClose: () -> Unit) {
     if (code != null && joined == null) scope.launch { runCatching { Core.call("cancel_invite", params("code" to code)) } }
     onClose()
   }
-  ModalBottomSheet(onDismissRequest = ::close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = ::close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       when {
         joined != null -> Success("$joined joined", "Your apps and data are syncing to it now.", ::close)
@@ -296,12 +301,12 @@ private fun AddDevice(onClose: () -> Unit) {
           SheetTitle("Add a device", center = true)
           Caption("On the other device, open UUOB, choose Join a network and enter this code.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
           CodeView(invite!!, "Waiting for your device…")
-          OutlinedButton(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Cancel") }
+          UTonal(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Cancel") }
         }
         error != null -> {
           SheetTitle("Couldn’t create a code")
           Caption(error!!, Modifier.padding(top = 6.dp))
-          OutlinedButton(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp)) { Text("Close") }
+          UTonal(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp)) { Text("Close") }
         }
         else -> Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
           CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -317,12 +322,12 @@ private fun AddDevice(onClose: () -> Unit) {
 fun Success(title: String, text: String, onDone: () -> Unit) {
   Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
     Surface(shape = CircleShape, color = Tint.ok, modifier = Modifier.size(76.dp)) {
-      Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Check, null, Modifier.size(40.dp), tint = Color.White) }
+      Box(contentAlignment = Alignment.Center) { Ico("check", null, Modifier.size(40.dp), tint = Color.White) }
     }
     Spacer(Modifier.height(16.dp))
     SheetTitle(title, center = true)
     Caption(text, Modifier.padding(top = 6.dp))
-    Button(onClick = onDone, Modifier.fillMaxWidth().padding(top = 22.dp).height(52.dp)) { Text("Done") }
+    UButton(onClick = onDone, Modifier.fillMaxWidth().padding(top = 22.dp), large = true) { Text("Done") }
   }
 }
 
@@ -347,12 +352,12 @@ private fun JoinNetwork(shell: Shell, onClose: () -> Unit) {
     }
     busy = false
   }
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Join a network")
       Caption("On a device that’s already set up, open Network → Add a device and type the code it shows.", Modifier.padding(top = 6.dp))
-      Button(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp)) {
-        Icon(Icons.Rounded.QrCodeScanner, null)
+      UButton(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp), large = true) {
+        Ico("scan", null)
         Text("  Scan QR code")
       }
       Caption("or type the code", Modifier.align(Alignment.CenterHorizontally).padding(vertical = 12.dp))
@@ -360,8 +365,8 @@ private fun JoinNetwork(shell: Shell, onClose: () -> Unit) {
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp)) }
       Caption("Anything already on this device is kept and merged into the network.", Modifier.padding(top = 14.dp))
       Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = onClose, Modifier.weight(1f).height(52.dp)) { Text("Cancel") }
-        Button(onClick = { join() }, Modifier.weight(1f).height(52.dp), enabled = !busy && complete(code)) {
+        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
+        UButton(onClick = { join() }, Modifier.weight(1f), enabled = !busy && complete(code), large = true) {
           Text(if (busy) "Linking…" else "Join", fontWeight = FontWeight.SemiBold)
         }
       }

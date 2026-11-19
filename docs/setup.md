@@ -127,8 +127,9 @@ An app also works on a device where UUOB isn't installed. It then uses UUOB on y
   space that is usually on. Apps with large data, like Photos, can then keep less on your phone.
 - **AI access.** **Access → Add → An AI** lets an AI assistant (Claude or another) use your data. It
   starts with no access, and you choose what it may read or change, app by app.
-- **Updates.** Each app shows an **Update** button when a new version is out. Every update is signed and
-  checked before it installs.
+- **Updates.** On a computer, each app shows an **Update** button when a new version is out. Every update
+  is signed and checked before it installs. On Android, UUOB updates through F-Droid, or install the new
+  version from the download page.
 
 ## Something not working?
 

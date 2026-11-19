@@ -1,5 +1,10 @@
 package app.uuob
 
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBarsPadding
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -60,30 +65,34 @@ import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import java.util.concurrent.Executors
 
-/** A screen: a large title that shrinks as you scroll, a line about it, then its content.
- *  With `onBack`, a back arrow (and the back gesture) leaves it. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen, as UUOB's pages always were: a large bold title with a grey line
+ * about it, then its content, all scrolling together. With `onBack`, a back
+ * button above the title (and the back gesture) leaves it.
+ */
 @Composable
 fun Page(title: String, lead: String, top: @Composable () -> Unit, onBack: (() -> Unit)? = null, content: LazyListScope.() -> Unit) {
-  val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
   if (onBack != null) androidx.activity.compose.BackHandler(onBack = onBack)
-  Scaffold(
-    Modifier.nestedScroll(scroll.nestedScrollConnection),
-    topBar = {
-      LargeTopAppBar(
-        title = { Text(title) }, actions = { top() }, scrollBehavior = scroll,
-        navigationIcon = {
-          if (onBack != null) androidx.compose.material3.IconButton(onClick = onBack) {
-            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.ArrowBack, "Back")
-          }
-        },
-      )
-    },
-  ) { pad ->
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding(), bottom = pad.calculateBottomPadding() + 88.dp)) {
-      if (lead.isNotEmpty()) block { Caption(lead, Modifier.padding(horizontal = 4.dp)) }
-      content()
+  LazyColumn(
+    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding(),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = if (onBack != null) 8.dp else 28.dp, bottom = 32.dp),
+  ) {
+    block {
+      if (onBack != null) {
+        IconBtn(onClick = onBack, Modifier.padding(bottom = 8.dp).offset(x = (-8).dp)) { Ico("back", "Back", size = 24.dp) }
+      }
+      androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+          title, Modifier.weight(1f),
+          style = androidx.compose.ui.text.TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-0.025).em),
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        top()
+      }
+      if (lead.isNotEmpty()) Secondary(lead, Modifier.padding(top = 10.dp))
+      Spacer(Modifier.height(4.dp))
     }
+    content()
   }
 }
 
@@ -144,10 +153,10 @@ fun Scanner(onDone: (String?, String?) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp),
       ) {
         Text("Point the camera at the QR code", color = Color.White, style = MaterialTheme.typography.titleMedium)
-        Button(
-          onClick = { onDone(null, null) }, Modifier.widthIn(max = 320.dp).fillMaxWidth().height(52.dp),
-          colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.92f), contentColor = Color(0xFF1D1D1F)),
-        ) { Text("Cancel") }
+        // A light button on the camera picture, whatever the phone's theme.
+        UuobTheme(dark = false) {
+          UTonal(onClick = { onDone(null, null) }, Modifier.widthIn(max = 320.dp).fillMaxWidth(), large = true) { Text("Cancel") }
+        }
       }
     }
   }

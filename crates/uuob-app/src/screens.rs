@@ -268,16 +268,23 @@ pub fn access(input: &Input) -> Json {
     json!(rows)
 }
 
-/// A node's label under it: its height, and its width (the apps cut longer
-/// names short).
+/// A node's label under it at normal text size: its height, and its width
+/// (the apps cut longer names short). Larger text (`text` in [`graph`])
+/// makes it taller, and a little wider: names are cut short sooner.
 const LABEL: f64 = 16.0;
 const LABEL_W: f64 = 78.0;
 
+/// How tall and wide a label is with text this large.
+fn label_size(text: f64) -> (f64, f64) {
+    (LABEL * text, LABEL_W * text.min(1.4))
+}
+
 /// Whether two nodes `(x, y, size, has a label)` touch: their shapes, or a
-/// label and a shape, or two labels.
-fn clash(a: (f64, f64, f64, bool), b: (f64, f64, f64, bool)) -> bool {
+/// label and a shape, or two labels. `text`: how large the labels' text is (1 normal).
+fn clash(a: (f64, f64, f64, bool), b: (f64, f64, f64, bool), text: f64) -> bool {
+    let (lh, lw) = label_size(text);
     let shape = |(x, y, size, _): (f64, f64, f64, bool)| (x - size / 2.0, y - size / 2.0, x + size / 2.0, y + size / 2.0);
-    let label = |(x, y, size, has): (f64, f64, f64, bool)| has.then(|| (x - LABEL_W / 2.0, y + size / 2.0 + 2.0, x + LABEL_W / 2.0, y + size / 2.0 + LABEL));
+    let label = |(x, y, size, has): (f64, f64, f64, bool)| has.then(|| (x - lw / 2.0, y + size / 2.0 + 2.0, x + lw / 2.0, y + size / 2.0 + lh));
     let meet = |p: (f64, f64, f64, f64), q: (f64, f64, f64, f64)| p.0 < q.2 + 3.0 && q.0 < p.2 + 3.0 && p.1 < q.3 + 3.0 && q.1 < p.3 + 3.0;
     let round = (a.0 - b.0).hypot(a.1 - b.1) < (a.2 + b.2) / 2.0 + 4.0;
     round
@@ -307,7 +314,13 @@ struct Spot {
 /// (`count`, `group`) and `fold` (`group`), each with `about: {kind, title,
 /// detail}` for when it is tapped, and `key`, its row in [`access`]. Lines:
 /// `{x1, y1, x2, y2, style}`, style `device`, `app`, `person` or `link`.
-pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
+/// `label_width`: how wide a label may be before its name is cut short.
+///
+/// `text`: how large the labels' text is, 1 at the system's normal size
+/// (Android's font scale): larger text gets more room.
+pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>, text: f64) -> Json {
+    let text = text.clamp(0.8, 2.5);
+    let (label_h, label_w) = label_size(text);
     let w = width.clamp(300.0, 1400.0);
     let h = (w * 0.62).clamp(420.0, 560.0);
     let s = (w / 800.0).clamp(0.75, 1.0);
@@ -488,7 +501,7 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
         let room = |a: f64| (edge(x, y, a) - item / 2.0 - 6.0).clamp(close, reach);
         // Wide enough apart that neighbours don't touch, even when pulled in.
         let inner = (0..k).map(|j| room(dir + (j as f64 - (k as f64 - 1.0) / 2.0) * 0.55)).fold(reach, f64::min);
-        let step = (2.0 * ((item + 8.0 * s + LABEL) / (2.0 * inner)).min(1.0).asin()).max(if k <= 5 { 0.55 } else { 2.6 / (k - 1) as f64 });
+        let step = (2.0 * ((item + 8.0 * s + label_h).max(label_w + 4.0) / (2.0 * inner)).min(1.0).asin()).max(if k <= 5 { 0.55 } else { 2.6 / (k - 1) as f64 });
         let at = |j: f64| dir + (j - (k as f64 - 1.0) / 2.0) * step;
         for (j, mut it) in items.into_iter().enumerate() {
             let a = at(j as f64);
@@ -564,7 +577,7 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
     spots.iter_mut().for_each(inside);
     // A crowded network can still have nodes (or labels) touching: push them
     // apart, a little at a time; devices move only for each other.
-    for _ in 0..400 {
+    for _ in 0..2000 {
         let mut moved = false;
         for i in 0..spots.len() {
             for j in i + 1..spots.len() {
@@ -572,14 +585,14 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
                 let (dx, dy) = (b.x - a.x, b.y - a.y);
                 let d = dx.hypot(dy);
                 let need = (a.size + b.size) / 2.0 + 6.0;
-                if d >= need && !clash((a.x, a.y, a.size, a.kind != "fold"), (b.x, b.y, b.size, b.kind != "fold")) {
+                if d >= need && !clash((a.x, a.y, a.size, a.kind != "fold"), (b.x, b.y, b.size, b.kind != "fold"), text) {
                     continue;
                 }
                 // Apart along the line between them: at once when the shapes
                 // overlap, a few points at a time when only a label is in the way.
-                // Only labels in the way, side by side: one above the other
-                // instead (there is always room up and down).
-                let (ux, uy) = if d >= need && dy.abs() < LABEL {
+                // Only a label in the way: further apart up or down (there is
+                // always room there; the sides may be the frame's edge).
+                let (ux, uy) = if d >= need {
                     (0.0, if dy < 0.0 { -1.0 } else { 1.0 })
                 } else if d > 1e-6 {
                     (dx / d, dy / d)
@@ -607,11 +620,30 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
             break;
         }
     }
+    // Whatever still touches after that (very large text on a narrow phone):
+    // from the top down, it moves down until it is clear. Devices first, and
+    // only for each other; then the rest, around them. Nodes only move down,
+    // so this always ends, at worst in a taller graph.
+    let mut order: Vec<usize> = (0..spots.len()).collect();
+    order.sort_by(|&a, &b| ((spots[a].kind != "device"), spots[a].y).partial_cmp(&((spots[b].kind != "device"), spots[b].y)).unwrap());
+    // (A point of slack: the positions are rounded when they are sent.)
+    let key = |sp: &Spot| (sp.x, sp.y, sp.size + 1.0, sp.kind != "fold");
+    for &i in &order {
+        let device = spots[i].kind == "device";
+        for _ in 0..2000 {
+            let me = key(&spots[i]);
+            let blocked = (0..spots.len()).any(|j| j != i && (!device || spots[j].kind == "device") && clash(me, key(&spots[j]), text));
+            if !blocked {
+                break;
+            }
+            spots[i].y += 4.0;
+        }
+    }
     let round = |v: f64| (v * 10.0).round() / 10.0;
     // As tall as what is drawn: a lone device needs no 420 points, a crowded
     // network on a phone may need more.
     let top = spots.iter().map(|sp| sp.y - sp.size / 2.0).fold(f64::MAX, f64::min);
-    let bottom = spots.iter().map(|sp| sp.y + sp.size / 2.0 + if sp.kind == "fold" { 0.0 } else { LABEL + 6.0 }).fold(f64::MIN, f64::max);
+    let bottom = spots.iter().map(|sp| sp.y + sp.size / 2.0 + if sp.kind == "fold" { 0.0 } else { label_h + 6.0 }).fold(f64::MIN, f64::max);
     let (shift, h) = if spots.is_empty() { (0.0, h) } else { (top - 16.0, bottom - top + 32.0) };
     for sp in &mut spots {
         sp.y -= shift;
@@ -634,7 +666,7 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
             j
         })
         .collect();
-    json!({"width": round(w), "height": round(h), "nodes": nodes, "lines": lines})
+    json!({"width": round(w), "height": round(h), "label_width": round(label_w + 22.0), "nodes": nodes, "lines": lines})
 }
 
 fn bubble(group: &str, count: usize, what: &str, title: &str, s: f64) -> Spot {
@@ -734,7 +766,7 @@ mod tests {
 
     #[test]
     fn groups_of_more_than_three_fold_into_bubbles() {
-        let g = graph(&mockup(), 800.0, &BTreeSet::new());
+        let g = graph(&mockup(), 800.0, &BTreeSet::new(), 1.0);
         assert_eq!(find(&g, "bubble:apps:mac")["count"], 4);
         assert_eq!(find(&g, "bubble:people")["count"], 5);
         assert_eq!(find(&g, "app:dev:pixel:calendar")["about"]["kind"], "App on Pixel 8");
@@ -743,7 +775,7 @@ mod tests {
         assert!(find(&g, "unseen")["dotted"] == true, "the old Tasks connection");
         assert!(nodes(&g).iter().all(|n| n["kind"] != "fold"));
 
-        let g = graph(&mockup(), 800.0, &open(&["apps:mac", "people"]));
+        let g = graph(&mockup(), 800.0, &open(&["apps:mac", "people"]), 1.0);
         assert!(nodes(&g).iter().all(|n| n["kind"] != "bubble"));
         for id in ["app:dev:mac:photos", "app:dev:mac:notes", "person:p5", "fold:apps:mac", "fold:people"] {
             find(&g, id);
@@ -753,8 +785,8 @@ mod tests {
 
     #[test]
     fn the_same_network_draws_the_same_graph() {
-        let a = graph(&mockup(), 800.0, &open(&["people"]));
-        assert_eq!(a, graph(&mockup(), 800.0, &open(&["people"])));
+        let a = graph(&mockup(), 800.0, &open(&["people"]), 1.0);
+        assert_eq!(a, graph(&mockup(), 800.0, &open(&["people"]), 1.0));
         // And this device comes first, on the left.
         let (mac, pixel) = (find(&a, "dev:mac"), find(&a, "dev:pixel"));
         assert!(mac["x"].as_f64() < pixel["x"].as_f64());
@@ -762,9 +794,9 @@ mod tests {
 
     #[test]
     fn nothing_overlaps_on_a_phone_or_a_computer() {
-        for width in [358.0, 390.0, 800.0, 1200.0] {
+        for (width, text) in [(358.0, 1.0), (390.0, 1.0), (800.0, 1.0), (1200.0, 1.0), (358.0, 1.5), (390.0, 2.0), (800.0, 1.3)] {
             for groups in [&[][..], &["apps:mac"], &["people"], &["apps:mac", "people"]] {
-                let g = graph(&mockup(), width, &open(groups));
+                let g = graph(&mockup(), width, &open(groups), text);
                 let (w, h) = (g["width"].as_f64().unwrap(), g["height"].as_f64().unwrap());
                 let all = nodes(&g);
                 for (i, a) in all.iter().enumerate() {
@@ -773,8 +805,8 @@ mod tests {
                     for b in &all[i + 1..] {
                         let (bx, by, br) = (b["x"].as_f64().unwrap(), b["y"].as_f64().unwrap(), b["size"].as_f64().unwrap() / 2.0);
                         let node = |n: &Json, x: f64, y: f64, r: f64| (x, y, r * 2.0, n["kind"] != "fold");
-                        assert!(!clash(node(a, ax, ay, ar), node(b, bx, by, br)),
-                            "{} and {} (or their labels) touch at width {width} with {groups:?}: ({ax}, {ay}, {ar}) ({bx}, {by}, {br})", a["id"], b["id"]);
+                        assert!(!clash(node(a, ax, ay, ar), node(b, bx, by, br), text),
+                            "{} and {} (or their labels) touch at width {width}, text {text}, with {groups:?}", a["id"], b["id"]);
                     }
                 }
             }
@@ -784,7 +816,7 @@ mod tests {
     #[test]
     fn one_device_alone() {
         let input: Input = serde_json::from_value(json!({"devices": [{"id": "a", "name": "Laptop", "is_self": true, "online": true}]})).unwrap();
-        let g = graph(&input, 390.0, &BTreeSet::new());
+        let g = graph(&input, 390.0, &BTreeSet::new(), 1.0);
         assert_eq!(nodes(&g).len(), 1);
         assert!(g["lines"].as_array().unwrap().is_empty());
         assert_eq!(find(&g, "dev:a")["label"], "This device");

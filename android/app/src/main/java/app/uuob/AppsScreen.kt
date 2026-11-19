@@ -1,5 +1,6 @@
 package app.uuob
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,9 +109,12 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
   Page(groups.firstOrNull()?.name ?: "", "", top, onBack) {
     groups.forEach { g ->
       block(g.id) {
-        Card(Modifier.fillMaxWidth().padding(top = 20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = MaterialTheme.shapes.extraLarge) {
+        Card(
+          Modifier.fillMaxWidth().padding(top = 20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+          shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
           Column(Modifier.padding(vertical = 8.dp)) {
-            ListItem(
+            Item(
               colors = clearItem(),
               leadingContent = { AppTile(g.id, 46.dp) },
               headlineContent = { Text(g.name, style = MaterialTheme.typography.titleMedium) },
@@ -124,20 +128,20 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
                 }
               },
               trailingContent = {
-                IconButton(onClick = {
+                IconBtn(onClick = {
                   shell.act {
                     val data = JSONObject()
                     for (c in g.cs) data.put(if (c.optString("id") == g.id) g.name else c.optString("name"), Core.call("export", params("container" to c.optString("id"))))
                     copy(ctx, data.toString(2))
                     shell.toast("Copied all ${g.name} data as JSON")
                   }
-                }) { Icon(Icons.Rounded.ContentCopy, "Copy as JSON") }
+                }) { Ico("copy", "Copy as JSON") }
               },
             )
             if (g.parts.isNotEmpty()) {
               Heading("In ${g.name}")
               g.parts.forEach { part ->
-                ListItem(
+                Item(
                   colors = clearItem(),
                   headlineContent = { Text(part.optString("name")) },
                   supportingContent = {
@@ -145,7 +149,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
                       Text(if (part.optBoolean("here")) plural(part.optInt("records"), "item", "items") else "Not on this device")
                       sharedNote(part)?.let {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Rounded.Group, null, Modifier.size(14.dp))
+                          Ico("people", null, Modifier.size(14.dp))
                           Text("  $it")
                         }
                       }
@@ -159,19 +163,19 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
             g.access.forEach { a ->
               val client = a.optString("client")
               val owner = client == "app:${g.id}"
-              ListItem(
+              Item(
                 colors = clearItem(),
                 leadingContent = { Dot(true) },
                 headlineContent = { Text(a.optString("client_name")) },
                 supportingContent = { Text((if (a.optString("access") == "write") "Read & write" else "Read only") + if (owner) " · owner" else "") },
                 trailingContent = {
-                  if (!owner) IconButton(onClick = {
+                  if (!owner) IconBtn(onClick = {
                     shell.act {
                       Core.call("set_grant", params("client" to client, "app" to g.id, "access" to null))
                       shell.toast("${a.optString("client_name")} can no longer access ${g.name}")
                       load()
                     }
-                  }) { Icon(Icons.Rounded.Close, "Remove access") }
+                  }) { Ico("close", "Remove access") }
                 },
               )
             }
@@ -179,24 +183,24 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
               Heading("On devices without UUOB")
               g.copies.forEach { (id, copy) ->
                 val device = copy.text("device") ?: "Another device"
-                ListItem(
+                Item(
                   colors = clearItem(),
                   headlineContent = { Text(device) },
                   supportingContent = { Text("Connected ${day(copy.optLong("created_at"))}") },
                   trailingContent = {
-                    IconButton(onClick = {
+                    IconBtn(onClick = {
                       shell.act {
                         Core.call("delete_client", params("id" to id))
                         shell.toast("${g.name} on ${copy.text("device") ?: "that device"} was disconnected")
                         load()
                       }
-                    }) { Icon(Icons.Rounded.Close, "Disconnect ${g.name} on $device") }
+                    }) { Ico("close", "Disconnect ${g.name} on $device") }
                   },
                 )
               }
             }
-            HorizontalDivider(Modifier.padding(top = 8.dp))
-            TextButton(onClick = { sheet = if (g.installed) AppSheet.Disconnect(g) else AppSheet.Wipe(g) }, Modifier.padding(horizontal = 8.dp)) {
+            Line()
+            UGhost(onClick = { sheet = if (g.installed) AppSheet.Disconnect(g) else AppSheet.Wipe(g) }, Modifier.padding(horizontal = 8.dp)) {
               Text(if (g.installed) "Disconnect ${g.name}…" else "Delete data…", color = MaterialTheme.colorScheme.error)
             }
           }
@@ -228,7 +232,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
 
 @Composable
 private fun Heading(text: String) =
-  Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+  SectionLabel(text, Modifier.padding(start = 16.dp, top = 14.dp))
 
 /** A one-time code to type into an app, also on a device without UUOB. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -236,14 +240,14 @@ private fun Heading(text: String) =
 fun AppCode(onClose: () -> Unit) {
   var code by remember { mutableStateOf<JSONObject?>(null) }
   LaunchedEffect(Unit) { runCatching { code = Core.obj("create_app_code") } }
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Connect with a code", center = true)
       Caption("Type this code into the app. It also works in an app on a device that has no UUOB.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
       code?.let { CodeView(it, "Works once.", qr = false) } ?: Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
       }
-      Button(onClick = onClose, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Done") }
+      UButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Done") }
     }
   }
 }
@@ -252,7 +256,7 @@ fun AppCode(onClose: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Disconnect(app: AppGroup, onClose: () -> Unit, onChoose: (delete: Boolean) -> Unit) {
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Disconnect ${app.name}?")
       Caption("${app.name} stops working with your network on all your devices. Choose what happens to its ${plural(app.records, "item", "items")}.", Modifier.padding(top = 6.dp))
@@ -260,7 +264,7 @@ private fun Disconnect(app: AppGroup, onClose: () -> Unit, onChoose: (delete: Bo
       Choice("Keep the data", "Connect it again later and pick up where you left off.", danger = false) { onChoose(false) }
       Spacer(Modifier.height(10.dp))
       Choice("Delete the data too", "Permanently erased from every device.", danger = true) { onChoose(true) }
-      OutlinedButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 16.dp).height(52.dp)) { Text("Cancel") }
+      UTonal(onClick = onClose, Modifier.fillMaxWidth().padding(top = 16.dp), large = true) { Text("Cancel") }
     }
   }
 }

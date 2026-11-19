@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -33,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -59,13 +62,19 @@ import org.json.JSONObject
  */
 @Composable
 fun Graph(shell: Shell, devices: List<JSONObject>) {
-  var open by remember { mutableStateOf(setOf<String>()) }
+  // The open groups, one per line, kept when the screen is made again (a
+  // new text size, turning the phone).
+  var opened by rememberSaveable { mutableStateOf("") }
+  val open = opened.lines().filter { it.isNotEmpty() }.toSet()
+  fun setOpen(groups: Set<String>) { opened = groups.sorted().joinToString("\n") }
   var picked by remember { mutableStateOf<JSONObject?>(null) }
   BoxWithConstraints(Modifier.fillMaxWidth()) {
     val width = maxWidth.value
+    // The system's text size: larger labels get more room.
+    val text = LocalDensity.current.fontScale
     var graph by remember { mutableStateOf<JSONObject?>(null) }
-    LaunchedEffect(shell.tick, width, open, devices) {
-      runCatching { graph = Core.obj("graph", params("width" to width.toDouble(), "open" to JSONArray(open.toList()))) }
+    LaunchedEffect(shell.tick, width, text, open, devices) {
+      runCatching { graph = Core.obj("graph", params("width" to width.toDouble(), "text" to text.toDouble(), "open" to JSONArray(open.toList()))) }
     }
     val g = graph ?: return@BoxWithConstraints
     val nodes = g.objects("nodes")
@@ -74,8 +83,8 @@ fun Graph(shell: Shell, devices: List<JSONObject>) {
     Column {
       Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(20.dp),
+        border = cardEdge,
       ) {
         Box(Modifier.fillMaxWidth().height(g.optDouble("height").dp)) {
           val strong = MaterialTheme.colorScheme.outline
@@ -92,11 +101,12 @@ fun Graph(shell: Shell, devices: List<JSONObject>) {
               )
             }
           }
+          val labelWidth = g.optDouble("label_width", 100.0).dp
           for (n in nodes) {
-            GraphNode(n, selected = n.optString("id") == shown?.optString("id")) {
+            GraphNode(n, labelWidth, selected = n.optString("id") == shown?.optString("id")) {
               when (n.optString("kind")) {
-                "bubble" -> open = open + n.optString("group")
-                "fold" -> open = open - n.optString("group")
+                "bubble" -> setOpen(open + n.optString("group"))
+                "fold" -> setOpen(open - n.optString("group"))
                 else -> picked = n
               }
             }
@@ -120,7 +130,7 @@ fun Graph(shell: Shell, devices: List<JSONObject>) {
 
 /** One node: its shape centred on (x, y), its name underneath. */
 @Composable
-private fun GraphNode(n: JSONObject, selected: Boolean, onClick: () -> Unit) {
+private fun GraphNode(n: JSONObject, labelWidth: androidx.compose.ui.unit.Dp, selected: Boolean, onClick: () -> Unit) {
   val size = n.optDouble("size").dp
   val x = n.optDouble("x").dp
   val y = n.optDouble("y").dp
@@ -141,7 +151,7 @@ private fun GraphNode(n: JSONObject, selected: Boolean, onClick: () -> Unit) {
     color = when (kind) {
       "app" -> Tint.apps[n.optInt("tint")]
       "ai" -> Tint.apps[4]
-      "person" -> Tint.apps[6]
+      "person" -> Color.Transparent
       "bubble" -> MaterialTheme.colorScheme.surfaceContainerHigh
       else -> MaterialTheme.colorScheme.surfaceContainerHighest
     },
@@ -156,19 +166,19 @@ private fun GraphNode(n: JSONObject, selected: Boolean, onClick: () -> Unit) {
     },
     modifier = Modifier.offset(x - size / 2, y - size / 2).size(size).semantics { contentDescription = what },
   ) {
-    Box(contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().then(if (kind == "person") Modifier.background(Tint.person) else Modifier), contentAlignment = Alignment.Center) {
       when (kind) {
-        "device" -> Icon(
+        "device" -> Ico(
           when {
-            n.optString("id") == "unseen" -> Icons.Rounded.HelpOutline
-            n.optBoolean("keeper") -> Icons.Rounded.Dns
-            n.optString("platform") in setOf("android", "ios") -> Icons.Rounded.PhoneAndroid
-            else -> Icons.Rounded.Laptop
+            n.optString("id") == "unseen" -> "question"
+            n.optBoolean("keeper") -> "server"
+            n.optString("platform") in setOf("android", "ios") -> "phone"
+            else -> "laptop"
           },
-          null, Modifier.size(size * 0.45f),
+          null, size = size * 0.45f,
         )
-        "ai" -> Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(size * 0.5f))
-        "fold" -> Icon(Icons.Rounded.Close, null, Modifier.size(size * 0.5f))
+        "ai" -> Ico("ai", null, Modifier.size(size * 0.5f))
+        "fold" -> Ico("close", null, Modifier.size(size * 0.5f))
         "bubble" -> Text(n.optString("count"), fontWeight = FontWeight.Bold, fontSize = (size.value * 0.3f).sp)
         else -> Text(n.optString("letter"), fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.42f).sp)
       }
@@ -178,7 +188,7 @@ private fun GraphNode(n: JSONObject, selected: Boolean, onClick: () -> Unit) {
     val self = n.optBoolean("self")
     Text(
       n.optString("label"),
-      Modifier.offset(x - 50.dp, y + size / 2 + 4.dp).requiredWidth(100.dp),
+      Modifier.offset(x - labelWidth / 2, y + size / 2 + 4.dp).requiredWidth(labelWidth),
       style = MaterialTheme.typography.labelSmall,
       fontWeight = if (self) FontWeight.SemiBold else FontWeight.Normal,
       color = if (self) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,

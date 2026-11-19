@@ -78,7 +78,7 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
       block(p.optString("id")) {
         val name = p.optString("name")
         Section {
-          ListItem(
+          Item(
             colors = clearItem(),
             leadingContent = { Avatar(name) },
             headlineContent = { Text(name, style = MaterialTheme.typography.titleMedium) },
@@ -88,14 +88,14 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
                 Text("  ${if (p.optBoolean("online")) "Online" else "Offline"}")
               }
             },
-            trailingContent = { IconButton(onClick = { sheet = PersonSheet.Remove(p) }) { Icon(Icons.Rounded.Delete, "Remove $name") } },
+            trailingContent = { IconBtn(onClick = { sheet = PersonSheet.Remove(p) }) { Ico("trash", "Remove $name") } },
           )
           val receiving = p.objects("receiving")
           val sharing = p.objects("sharing")
           if (receiving.isNotEmpty()) {
             Label("$name shares with you")
             receiving.forEach { s ->
-              ListItem(
+              Item(
                 colors = clearItem(),
                 leadingContent = { AppTile(s.optString("app"), 36.dp) },
                 headlineContent = { Text(s.optString("name")) },
@@ -103,9 +103,9 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
                 trailingContent = {
                   val container = s.optString("container")
                   if (s.optBoolean("offered")) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { act("delete_container", params("id" to container)) }) { Text("Decline") }
-                    FilledTonalButton(onClick = { act("accept_share", params("container" to container), "“${s.optString("name")}” was added to ${s.optString("app_name")}") }) { Text("Accept") }
-                  } else TextButton(onClick = { act("delete_container", params("id" to container), "You left “${s.optString("name")}”") }) {
+                    UGhost(onClick = { act("delete_container", params("id" to container)) }) { Text("Decline") }
+                    UTonal(onClick = { act("accept_share", params("container" to container), "“${s.optString("name")}” was added to ${s.optString("app_name")}") }) { Text("Accept") }
+                  } else UGhost(onClick = { act("delete_container", params("id" to container), "You left “${s.optString("name")}”") }) {
                     Text("Leave", color = MaterialTheme.colorScheme.error)
                   }
                 },
@@ -116,15 +116,15 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
             Label("You share with $name")
             sharing.forEach { s ->
               val container = s.optString("container")
-              ListItem(
+              Item(
                 colors = clearItem(),
                 leadingContent = { AppTile(s.optString("app"), 36.dp) },
                 headlineContent = { Text(s.optString("name")) },
                 supportingContent = { Text(s.optString("app_name")) },
                 trailingContent = {
-                  IconButton(onClick = {
+                  IconBtn(onClick = {
                     act("share_with", params("container" to container, "person" to p.optString("id"), "access" to null), "Stopped sharing “${s.optString("name")}” with $name")
-                  }) { Icon(Icons.Rounded.Close, "Stop sharing") }
+                  }) { Ico("close", "Stop sharing") }
                 },
               )
               Choice(listOf("read" to "Can view", "write" to "Can edit"), s.optString("access"), Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) { v ->
@@ -165,21 +165,21 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
 
 @Composable
 private fun Label(text: String) =
-  Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+  SectionLabel(text, Modifier.padding(start = 16.dp, top = 14.dp, bottom = 4.dp))
 
 /** "Your name": how you appear to people you share with. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NameSheet(current: String, continues: Boolean, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Your name")
       Caption("This is how you appear to people you share with.", Modifier.padding(top = 6.dp))
-      OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 18.dp), placeholder = { Text("e.g. Alex") }, singleLine = true)
+      Field(name, { name = it }, Modifier.fillMaxWidth().padding(top = 18.dp), placeholder = { Text("e.g. Alex") }, singleLine = true)
       Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = onClose, Modifier.weight(1f).height(52.dp)) { Text("Cancel") }
-        Button(onClick = { onSave(name) }, Modifier.weight(1f).height(52.dp), enabled = name.isNotBlank()) { Text(if (continues) "Continue" else "Save") }
+        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
+        UButton(onClick = { onSave(name) }, Modifier.weight(1f), enabled = name.isNotBlank(), large = true) { Text(if (continues) "Continue" else "Save") }
       }
     }
   }
@@ -206,7 +206,7 @@ private fun AddPerson(shell: Shell, onClose: () -> Unit) {
     if (code != null && linked == null) scope.launch { runCatching { Core.call("cancel_invite", params("code" to code)) } }
     onClose()
   }
-  ModalBottomSheet(onDismissRequest = ::close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = ::close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       when {
         linked != null -> Success("Linked with $linked", "Nothing is shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.", ::close)
@@ -215,12 +215,12 @@ private fun AddPerson(shell: Shell, onClose: () -> Unit) {
           Caption("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
           CodeView(invite!!, "Waiting for them…")
           Caption("This links the two of you. It doesn’t share anything, and it doesn’t add them to your devices.", Modifier.padding(top = 16.dp))
-          OutlinedButton(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Cancel") }
+          UTonal(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Cancel") }
         }
         error != null -> {
           SheetTitle("Couldn’t create a code")
           Caption(error!!, Modifier.padding(top = 6.dp))
-          OutlinedButton(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp)) { Text("Close") }
+          UTonal(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp)) { Text("Close") }
         }
         else -> Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
           CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -253,12 +253,12 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
     }
     busy = false
   }
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Enter a code")
       Caption("Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.", Modifier.padding(top = 6.dp))
-      Button(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp)) {
-        Icon(Icons.Rounded.QrCodeScanner, null)
+      UButton(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp), large = true) {
+        Ico("scan", null)
         Text("  Scan QR code")
       }
       Caption("or type the code", Modifier.align(Alignment.CenterHorizontally).padding(vertical = 12.dp))
@@ -266,8 +266,8 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp)) }
       Caption("Your devices and data stay your own. You see only what they share with you.", Modifier.padding(top = 14.dp))
       Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = onClose, Modifier.weight(1f).height(52.dp)) { Text("Cancel") }
-        Button(onClick = { meet() }, Modifier.weight(1f).height(52.dp), enabled = !busy && complete(code)) { Text(if (busy) "Linking…" else "Link") }
+        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
+        UButton(onClick = { meet() }, Modifier.weight(1f), enabled = !busy && complete(code), large = true) { Text(if (busy) "Linking…" else "Link") }
       }
     }
   }
@@ -296,13 +296,13 @@ fun AddPersonFlow(shell: Shell, onClose: () -> Unit) {
     PersonSheet.Meet -> Meet(shell, onClose)
     else -> if (name.isBlank()) NameSheet("", continues = true, onClose = onClose) { new ->
       shell.act { Core.call("set_name", params("name" to new)); me = new.trim() }
-    } else ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    } else Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
       SheetBody {
         SheetTitle("Add a person")
         Caption("Link with someone who has their own UUOB. Then share a list or a calendar with them from its app. They see only what you share.", Modifier.padding(top = 6.dp))
-        Button(onClick = { sheet = PersonSheet.Add }, Modifier.fillMaxWidth().padding(top = 20.dp).height(56.dp)) { Text("Show my code") }
-        FilledTonalButton(onClick = { sheet = PersonSheet.Meet }, Modifier.fillMaxWidth().padding(top = 10.dp).height(56.dp)) { Text("Enter their code") }
-        OutlinedButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 10.dp).height(52.dp)) { Text("Cancel") }
+        UButton(onClick = { sheet = PersonSheet.Add }, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Show my code") }
+        UTonal(onClick = { sheet = PersonSheet.Meet }, Modifier.fillMaxWidth().padding(top = 10.dp), large = true) { Text("Enter their code") }
+        UTonal(onClick = onClose, Modifier.fillMaxWidth().padding(top = 10.dp), large = true) { Text("Cancel") }
       }
     }
   }

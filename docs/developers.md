@@ -192,7 +192,8 @@ docker/release.sh          # in an app's repository: uuob/docker/release.sh
 It builds the APK here and the Mac app on GitHub, signs both with the update
 key (kept only in the `uuob-android-keys` volume) and uploads them to the
 public downloads repo, where each app has its feed (`tasks.json`). Installed
-apps then show "Update to …". The same release also refreshes a Homebrew tap
+apps then show "Update to …" (UUOB itself on Android doesn't: it updates through
+F-Droid or the download page). The same release also refreshes a Homebrew tap
 (`Casks/` in that repo) and an F-Droid repo (`docker/fdroid.sh`, on its
 `gh-pages` branch), for people who prefer those.
 

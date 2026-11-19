@@ -106,7 +106,7 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
     }
     return
   }
-  ModalBottomSheet(onDismissRequest = { if (step == "people") done() else back() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = { if (step == "people") done() else back() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       if (step == "new") {
         SheetTitle("Share with someone new", center = true)
@@ -117,7 +117,7 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
           error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
           else -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) }
         }
-        OutlinedButton(onClick = ::back, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Back") }
+        UTonal(onClick = ::back, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Back") }
       } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
           AppTile(ask.optString("app"), 52.dp)
@@ -129,7 +129,7 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
         Column(Modifier.padding(vertical = 16.dp)) {
           shell.people.forEach { p ->
             val level = p.objects("sharing").firstOrNull { it.optString("container") == container }?.optString("access") ?: "none"
-            ListItem(
+            Item(
               colors = clearItem(),
               leadingContent = { Avatar(p.optString("name"), 36.dp) },
               headlineContent = { Text(p.optString("name")) },
@@ -142,17 +142,17 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
                 }
               },
             )
-            HorizontalDivider()
+            Line()
           }
-          ListItem(
+          Item(
             colors = clearItem(),
             modifier = Modifier.padding(top = 4.dp).clickable(onClick = ::someoneNew),
-            leadingContent = { Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary) },
+            leadingContent = { Ico("plus", null, tint = MaterialTheme.colorScheme.primary) },
             headlineContent = { Text("Someone new…", color = MaterialTheme.colorScheme.primary) },
-            trailingContent = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null) },
+            trailingContent = { Ico("chevron", null) },
           )
         }
-        Button(onClick = { done() }, Modifier.fillMaxWidth().height(52.dp)) { Text("Done") }
+        UButton(onClick = { done() }, Modifier.fillMaxWidth(), large = true) { Text("Done") }
       }
     }
   }

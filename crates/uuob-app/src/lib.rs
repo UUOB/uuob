@@ -106,7 +106,9 @@ pub async fn call(method: &str, params: Json) -> Result<Json, (String, &'static 
         "graph" => {
             let open = params["open"].as_array().into_iter().flatten().filter_map(|g| g.as_str().map(String::from)).collect();
             let width = params["width"].as_f64().unwrap_or(800.0);
-            return Ok(screens::graph(&screens::Input::from_node(node), width, &open));
+            // How large the system's text is (Android's font scale), 1 if not said.
+            let text = params["text"].as_f64().unwrap_or(1.0);
+            return Ok(screens::graph(&screens::Input::from_node(node), width, &open, text));
         }
         "access" => return Ok(screens::access(&screens::Input::from_node(node))),
         _ => {}

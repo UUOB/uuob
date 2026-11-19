@@ -10,8 +10,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <!-- Scanning the QR code of another device (Scanner.kt). -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- "Update to …": UUOB installs newer versions of itself (Updater.kt); nothing else. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- After the first update Android can install the next ones without asking again. -->
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
@@ -109,7 +107,5 @@
             </intent-filter>
         </receiver>
 
-        <!-- The system installer's answer to an update (Updater.kt). -->
-        <receiver android:name=".UpdateReceiver" android:exported="false" />
     </application>
 </manifest>

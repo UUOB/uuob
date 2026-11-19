@@ -81,24 +81,22 @@ private fun AccessScreen(shell: Shell, top: @Composable () -> Unit, onOpen: (Str
   LaunchedEffect(shell.tick, shell.people) { runCatching { rows = Core.list("access") } }
   val shown = rows.filter { show.kind == null || it.optString("kind") == show.kind }
 
-  Page("Access", "Everything that can reach your data, and what each one can read or write.", top) {
+  Page("Access", "Everything that can reach your data, and what each one can read or write.", top = {
+    UButton(onClick = { sheet = AddSheet.Choose }) {
+      Ico("plus", null, size = 18.dp, stroke = 2.2f)
+      Text("Add")
+    }
+  }) {
     block {
-      Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Show.entries.forEach { s -> FilterChip(selected = show == s, onClick = { show = s }, label = { Text(s.label) }) }
-        Spacer(Modifier.weight(1f))
-        Button(onClick = { sheet = AddSheet.Choose }) {
-          Icon(Icons.Rounded.Add, null)
-          Text(" Add")
-        }
-      }
+      Choice(Show.entries.map { it.name to it.label }, show.name, Modifier.fillMaxWidth().padding(top = 20.dp)) { show = Show.valueOf(it) }
     }
     if (rows.isEmpty()) block {
-      Empty(Icons.Rounded.Widgets, "Nothing has access yet", "Install an app like Tasks or Calendar and open it: it asks to connect. You can also link with a person or connect an AI with Add.")
+      Empty("shield", "Nothing has access yet", "Install an app like Tasks or Calendar and open it: it asks to connect. You can also link with a person or connect an AI with Add.")
     } else if (shown.isNotEmpty()) block {
       Section {
         shown.forEachIndexed { i, r ->
-          if (i > 0) HorizontalDivider(Modifier.padding(start = 72.dp))
-          ListItem(
+          if (i > 0) Line()
+          Item(
             modifier = Modifier.clickable { onOpen(r.optString("key")) },
             colors = clearItem(),
             leadingContent = { RowIcon(r) },
@@ -114,7 +112,7 @@ private fun AccessScreen(shell: Shell, top: @Composable () -> Unit, onOpen: (Str
                 r.text("where")?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
               }
             },
-            trailingContent = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null) },
+            trailingContent = { Ico("chevron", null) },
           )
         }
       }
@@ -141,7 +139,7 @@ private fun RowIcon(r: JSONObject) {
     "app" -> AppTile(r.optString("id"), 40.dp)
     "person" -> Avatar(r.optString("name"), 40.dp)
     else -> Box(Modifier.size(40.dp).clip(RoundedCornerShape(11.dp)).background(Tint.apps[4]), contentAlignment = Alignment.Center) {
-      Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White)
+      Ico("ai", null, tint = Color.White)
     }
   }
 }
@@ -154,7 +152,7 @@ private fun Badge(kind: String) {
     "person" -> "Person" to Tint.apps[6]
     else -> "AI" to Tint.apps[4]
   }
-  Surface(color = color.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.onSurface, shape = RoundedCornerShape(6.dp), modifier = Modifier.padding(start = 8.dp)) {
+  Surface(color = color.copy(alpha = 0.16f), contentColor = color, shape = RoundedCornerShape(6.dp), modifier = Modifier.padding(start = 8.dp)) {
     Text(text.uppercase(), Modifier.padding(horizontal = 7.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
   }
 }
@@ -163,26 +161,26 @@ private fun Badge(kind: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddChooser(onClose: () -> Unit, onChoose: (AddSheet) -> Unit) {
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("What are you adding?")
       Spacer(Modifier.height(16.dp))
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Kind(Icons.Rounded.Widgets, Tint.apps[0], "An app", "An app on one of your devices, or on a device without UUOB.") { onChoose(AddSheet.App) }
-        Kind(Icons.Rounded.Person, Tint.apps[6], "A person", "Someone with their own UUOB. You choose what to share.") { onChoose(AddSheet.Person) }
-        Kind(Icons.Rounded.AutoAwesome, Tint.apps[4], "An AI", "An assistant that sees only what you pick.") { onChoose(AddSheet.Ai) }
+        Kind("apps", Tint.apps[0], "An app", "An app on one of your devices, or on a device without UUOB.") { onChoose(AddSheet.App) }
+        Kind("person", Tint.apps[6], "A person", "Someone with their own UUOB. You choose what to share.") { onChoose(AddSheet.Person) }
+        Kind("ai", Tint.apps[4], "An AI", "An assistant that sees only what you pick.") { onChoose(AddSheet.Ai) }
       }
-      OutlinedButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 16.dp).height(52.dp)) { Text("Cancel") }
+      UTonal(onClick = onClose, Modifier.fillMaxWidth().padding(top = 16.dp), large = true) { Text("Cancel") }
     }
   }
 }
 
 @Composable
-private fun Kind(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, title: String, text: String, onClick: () -> Unit) =
+private fun Kind(icon: String, color: Color, title: String, text: String, onClick: () -> Unit) =
   Card(onClick = onClick, Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
       Box(Modifier.size(44.dp).clip(if (title == "A person") CircleShape else RoundedCornerShape(12.dp)).background(color), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White)
+        Ico(icon, null, tint = Color.White)
       }
       Column(Modifier.padding(start = 14.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
@@ -195,11 +193,11 @@ private fun Kind(icon: androidx.compose.ui.graphics.vector.ImageVector, color: C
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Info(title: String, text: String, onClose: () -> Unit) {
-  ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle(title)
       Caption(text, Modifier.padding(top = 6.dp))
-      Button(onClick = onClose, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Done") }
+      UButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Done") }
     }
   }
 }

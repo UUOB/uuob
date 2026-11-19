@@ -1,5 +1,8 @@
 package app.uuob
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,15 +52,20 @@ fun AiScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: ()
     clients.forEach { (cid, c) ->
       block(cid) {
         Section {
-          ListItem(
+          Item(
             colors = clearItem(),
-            leadingContent = { Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.tertiary) },
+            leadingContent = {
+              androidx.compose.foundation.layout.Box(
+                Modifier.size(40.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(11.dp)).background(Tint.apps[4]),
+                contentAlignment = androidx.compose.ui.Alignment.Center,
+              ) { Ico("ai", null, tint = androidx.compose.ui.graphics.Color.White) }
+            },
             headlineContent = { Text(c.optString("name"), style = MaterialTheme.typography.titleMedium) },
             supportingContent = { Text("Connected ${day(c.optLong("created_at"))}") },
-            trailingContent = { IconButton(onClick = { removing = cid to c }) { Icon(Icons.Rounded.Delete, "Disconnect") } },
+            trailingContent = { IconBtn(onClick = { removing = cid to c }) { Ico("trash", "Disconnect") } },
           )
           apps.forEach { k ->
-            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            Line()
             Column(Modifier.padding(16.dp)) {
               Text(appName(k), style = MaterialTheme.typography.titleSmall)
               Choice(listOf("none" to "No access", "read" to "Read", "write" to "Read & write"), level(cid, k), Modifier.fillMaxWidth().padding(top = 8.dp)) { v ->

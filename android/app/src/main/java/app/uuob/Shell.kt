@@ -1,5 +1,14 @@
 package app.uuob
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +37,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -112,48 +123,71 @@ class Shell(private val scope: CoroutineScope) {
   val offers get() = people.flatMap { p -> p.objects("receiving").filter { it.optBoolean("offered") }.map { it to p } }
 }
 
-private enum class Screen(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-  Network("Network", Icons.Rounded.Hub),
-  Access("Access", Icons.Rounded.Shield),
-  Settings("Settings", Icons.Rounded.Tune),
+private enum class Screen(val title: String, val icon: String) {
+  Network("Network", "network"),
+  Access("Access", "shield"),
+  Settings("Settings", "settings"),
 }
 
 @Composable
-fun UuobApp(shell: Shell, updater: Updater) {
+fun UuobApp(shell: Shell) {
   var screen by rememberSaveable { mutableStateOf(Screen.Network) }
   LaunchedEffect(Unit) { shell.follow() }
 
-  NavigationSuiteScaffold(navigationSuiteItems = {
-    Screen.entries.forEach { s ->
-      item(
-        selected = screen == s,
-        onClick = { screen = s },
-        label = { Text(s.title) },
-        icon = {
-          val st = shell.status
-          BadgedBox(badge = {
-            if (s == Screen.Network && (st?.optInt("devices_total") ?: 0) > 1) Badge(containerColor = if ((st?.optInt("devices_online") ?: 0) > 1) Tint.ok else Tint.offline)
-            else if (s == Screen.Access && shell.asks.size + shell.offers.size > 0) Badge { Text("${shell.asks.size + shell.offers.size}") }
-          }) { Icon(s.icon, null) }
-        },
-      )
-    }
-  }) {
-    Box(Modifier.fillMaxSize()) {
+  val scheme = MaterialTheme.colorScheme
+  Column(Modifier.fillMaxSize().background(scheme.background)) {
+    Box(Modifier.weight(1f)) {
       Column(Modifier.fillMaxSize()) {
         shell.serverError?.let {
           Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.fillMaxWidth()) {
             Text("$it Close other copies of UUOB and open it again.", Modifier.padding(12.dp), textAlign = TextAlign.Center)
           }
         }
-        val top = @Composable { UpdateButton(updater) }
+        val top = @Composable {}
         when (screen) {
           Screen.Network -> NetworkScreen(shell, top)
           Screen.Access -> AccessTab(shell, top)
-          Screen.Settings -> SettingsScreen(shell, updater, top)
+          Screen.Settings -> SettingsScreen(shell, top)
         }
       }
-      SnackbarHost(shell.snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+      // Toasts: a small pill, as UUOB always showed them.
+      SnackbarHost(shell.snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp)) { data ->
+        Surface(
+          shape = androidx.compose.foundation.shape.CircleShape, color = Look.elevated, contentColor = scheme.onSurface,
+          border = androidx.compose.foundation.BorderStroke(1.dp, Look.lineStrong), shadowElevation = 8.dp,
+        ) {
+          Text(data.visuals.message, Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+        }
+      }
+    }
+    // The tab bar, as UUOB's rail became on a phone: a hairline above, each
+    // tab an icon in a soft tile with its name under it, a dot for news.
+    Line()
+    Row(Modifier.fillMaxWidth().background(scheme.surfaceContainerLow).navigationBarsPadding().padding(4.dp)) {
+      Screen.entries.forEach { s ->
+        val on = screen == s
+        val st = shell.status
+        val dot = when {
+          s == Screen.Network && (st?.optInt("devices_total") ?: 0) > 1 -> if ((st?.optInt("devices_online") ?: 0) > 1) Tint.ok else Look.text3
+          s == Screen.Access && shell.asks.size + shell.offers.size > 0 -> Tint.waiting
+          else -> null
+        }
+        Column(
+          Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+            .selectable(selected = on, role = androidx.compose.ui.semantics.Role.Tab) { screen = s }
+            .padding(vertical = 6.dp),
+          horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+          Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) Look.active else Color.Transparent), contentAlignment = Alignment.Center) {
+            Ico(s.icon, null, tint = if (on) scheme.onSurface else Look.text2)
+            if (dot != null) Box(
+              Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp).size(12.dp).clip(CircleShape)
+                .background(Look.elevated).padding(2.dp).clip(CircleShape).background(dot),
+            )
+          }
+          Text(s.title, style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = if (on) scheme.onSurface else Look.text2)
+        }
+      }
     }
   }
 
@@ -182,12 +216,12 @@ private fun AskSheet(shell: Shell, ask: JSONObject) {
     shell.tick++
   }
   val connect = ask.optString("kind") == "connect"
-  ModalBottomSheet(onDismissRequest = { answer(false) }, sheetState = state, dragHandle = null) {
+  Sheet(onDismissRequest = { answer(false) }, sheetState = state, dragHandle = null) {
     SheetBody {
       Spacer(Modifier.height(32.dp))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         AppTile(ask.optString("app"), 58.dp)
-        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.padding(horizontal = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Ico("right", null, Modifier.padding(horizontal = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         if (connect) Logo(58.dp) else AppTile(ask.optString("container"), 58.dp)
       }
       Spacer(Modifier.height(18.dp))
@@ -200,8 +234,8 @@ private fun AskSheet(shell: Shell, ask: JSONObject) {
         Caption("You can change this any time in Access.", Modifier.fillMaxWidth().padding(top = 6.dp))
       }
       Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = { answer(false) }, Modifier.weight(1f).height(52.dp)) { Text("Don’t allow") }
-        Button(onClick = { answer(true) }, Modifier.weight(1f).height(52.dp)) { Text("Allow") }
+        UTonal(onClick = { answer(false) }, Modifier.weight(1f), large = true) { Text("Don’t allow") }
+        UButton(onClick = { answer(true) }, Modifier.weight(1f), large = true) { Text("Allow") }
       }
     }
   }
@@ -219,11 +253,11 @@ private fun OfferSheet(shell: Shell, offer: JSONObject, person: JSONObject) {
     shell.refresh()
     shell.tick++
   }
-  ModalBottomSheet(onDismissRequest = { shell.later += container }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+  Sheet(onDismissRequest = { shell.later += container }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         Avatar(person.optString("name"), 58.dp)
-        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.padding(horizontal = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Ico("right", null, Modifier.padding(horizontal = 12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         AppTile(offer.optString("app"), 58.dp)
       }
       Spacer(Modifier.height(18.dp))
@@ -231,8 +265,8 @@ private fun OfferSheet(shell: Shell, offer: JSONObject, person: JSONObject) {
       val can = if (offer.optString("access") == "write") "You can both change it." else "You can view it, but not change it."
       Caption("It will appear in ${offer.optString("app_name")} on all your devices. $can", Modifier.fillMaxWidth().padding(top = 6.dp))
       Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = { answer(false) }, Modifier.weight(1f).height(52.dp)) { Text("Decline") }
-        Button(onClick = { answer(true) }, Modifier.weight(1f).height(52.dp)) { Text("Accept") }
+        UTonal(onClick = { answer(false) }, Modifier.weight(1f), large = true) { Text("Decline") }
+        UButton(onClick = { answer(true) }, Modifier.weight(1f), large = true) { Text("Accept") }
       }
     }
   }

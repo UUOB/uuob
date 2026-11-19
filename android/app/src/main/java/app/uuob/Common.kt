@@ -1,5 +1,13 @@
 package app.uuob
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.luminance
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -70,17 +78,28 @@ import org.json.JSONObject
 @Composable
 fun clearItem() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
-/** A group of rows on one card, with an optional label above and a note below. */
+/** A group of rows on one card (a hairline edge, round corners), with an
+ *  optional small uppercase label above and a note below. */
 @Composable
 fun Section(label: String? = null, note: String? = null, content: @Composable ColumnScope.() -> Unit) {
-  Column(Modifier.padding(top = 20.dp)) {
-    if (label != null) Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
-      Column(Modifier.padding(vertical = 4.dp), content = content)
+  Column(Modifier.padding(top = if (label != null) 28.dp else 20.dp)) {
+    if (label != null) SectionLabel(label, Modifier.padding(start = 4.dp, bottom = 8.dp))
+    Card(
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+      shape = RoundedCornerShape(18.dp),
+      border = cardEdge,
+    ) {
+      Column(Modifier.fillMaxWidth(), content = content)
     }
-    if (note != null) Caption(note, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+    if (note != null) Text(note, Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp), style = MaterialTheme.typography.bodySmall, color = Look.text2)
   }
 }
+
+/** A section's label: small, grey, in capitals. */
+@Composable
+fun SectionLabel(text: String, modifier: Modifier = Modifier) =
+  Text(text.uppercase(), modifier, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.52.sp), color = Look.text3)
+
 
 @Composable
 fun Caption(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) =
@@ -88,21 +107,18 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
 
 /** The intro shown on a screen that has nothing in it yet. */
 @Composable
-fun Empty(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String) {
-  Card(Modifier.fillMaxWidth().padding(top = 20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
-    Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-      Box(Modifier.size(60.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-      }
-      Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-      Caption(text, Modifier.padding(top = 4.dp), )
-    }
+fun Empty(icon: String, title: String, text: String) {
+  // `.empty`: centred, a large line icon, the title and a grey line.
+  Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Ico(icon, null, size = 44.dp, tint = Look.text3, stroke = 1.5f)
+    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+    Text(text, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyMedium, color = Look.text2, textAlign = TextAlign.Center)
   }
 }
 
 /** Online or offline. */
 @Composable
-fun Dot(on: Boolean) = Box(Modifier.size(8.dp).clip(CircleShape).background(if (on) Tint.ok else Tint.offline))
+fun Dot(on: Boolean) = Box(Modifier.size(9.dp).clip(CircleShape).background(if (on) Tint.ok else Look.text3))
 
 /** Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular. */
 /** An app's colour, the same on every platform: FNV-1a of its id (crates/uuob-app/src/screens.rs `tint`). */
@@ -120,20 +136,42 @@ fun AppTile(app: String, size: Dp = 44.dp) =
 
 fun initial(name: String?) = name?.trim()?.firstOrNull()?.uppercase() ?: "?"
 
+/** A person: their initial on the green to blue (yours on the blue). */
 @Composable
 fun Avatar(name: String?, size: Dp = 44.dp, mine: Boolean = false) =
-  Box(Modifier.size(size).clip(CircleShape).background(if (mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary), contentAlignment = Alignment.Center) {
-    Text(initial(name), color = if (mine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onTertiary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+  Box(
+    Modifier.size(size).clip(CircleShape).then(if (mine) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier.background(Tint.person)),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(initial(name), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.42f).sp)
   }
 
-/** A choice between a few values, e.g. Can view / Can edit. */
+/** A choice between a few values, e.g. Can view / Can edit: a grey track
+ *  with the chosen one raised on it. */
 @Composable
 fun Choice(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
-  SingleChoiceSegmentedButtonRow(modifier) {
-    options.forEachIndexed { i, (value, label) ->
-      // No tick: the filled segment already says which one is chosen, and the label needs the room.
-      SegmentedButton(selected = value == selected, onClick = { onSelect(value) }, shape = SegmentedButtonDefaults.itemShape(i, options.size), icon = {}) {
-        Text(label, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+  val scheme = MaterialTheme.colorScheme
+  val raised = Look.elevated
+  // Stretched across when the caller gives it a width, else as wide as its labels.
+  val stretch = modifier != Modifier
+  Row(
+    modifier.clip(RoundedCornerShape(10.dp)).background(scheme.surfaceContainerHigh).padding(3.dp).height(IntrinsicSize.Min),
+    horizontalArrangement = Arrangement.spacedBy(2.dp),
+  ) {
+    options.forEach { (value, label) ->
+      val on = value == selected
+      Box(
+        Modifier.then(if (stretch) Modifier.weight(1f) else Modifier).widthIn(min = 44.dp).fillMaxHeight()
+          .then(if (on) Modifier.shadow(1.dp, RoundedCornerShape(8.dp)) else Modifier)
+          .clip(RoundedCornerShape(8.dp)).background(if (on) raised else Color.Transparent)
+          .selectable(selected = on, onClick = { onSelect(value) }, role = androidx.compose.ui.semantics.Role.Tab)
+          .padding(horizontal = 14.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          label, maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+          style = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = if (on) scheme.onSurface else Look.text2,
+        )
       }
     }
   }
@@ -195,7 +233,7 @@ fun CodeView(invite: JSONObject, waiting: String, qr: Boolean = true) {
 /** A field for a code like "42 amber river falcon". */
 @Composable
 fun CodeField(value: String, onChange: (String) -> Unit, onGo: () -> Unit) =
-  OutlinedTextField(
+  Field(
     value, onChange, Modifier.fillMaxWidth(),
     placeholder = { Text("e.g. 42 amber river falcon") },
     singleLine = true,
@@ -210,24 +248,25 @@ fun complete(code: String) = code.trim().split(Regex("[\\s-]+")).size >= 4
 /** A question before something that can't be undone. */
 @Composable
 fun Confirm(title: String, text: String, action: String, onConfirm: () -> Unit, onDismiss: () -> Unit) =
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    title = { Text(title) },
-    text = { Text(text) },
-    confirmButton = {
-      Button(onClick = onConfirm, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)) { Text(action) }
-    },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-  )
+  Sheet(onDismissRequest = onDismiss) {
+    SheetBody {
+      SheetTitle(title)
+      Secondary(text, Modifier.padding(top = 8.dp))
+      Actions {
+        UTonal(onClick = onDismiss, Modifier.weight(1f), large = true) { Text("Cancel") }
+        UDanger(onClick = onConfirm, Modifier.weight(1f), large = true) { Text(action) }
+      }
+    }
+  }
 
-/** The content of a bottom sheet: padded, with room for the keyboard. */
+/** The content of a sheet: 28 points of room on every side; it scrolls if long. */
 @Composable
 fun SheetBody(content: @Composable ColumnScope.() -> Unit) =
-  Column(Modifier.fillMaxWidth().widthIn(max = 560.dp).padding(PaddingValues(start = 24.dp, end = 24.dp, bottom = 32.dp)), content = content)
+  Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp), content = content)
 
 @Composable
 fun SheetTitle(text: String, center: Boolean = false) =
-  Text(text, Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineSmall, textAlign = if (center) TextAlign.Center else TextAlign.Start)
+  Text(text, Modifier.fillMaxWidth(), style = androidx.compose.ui.text.TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.44).sp), textAlign = if (center) TextAlign.Center else TextAlign.Start)
 
 fun copy(ctx: Context, text: String) {
   ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("UUOB", text))

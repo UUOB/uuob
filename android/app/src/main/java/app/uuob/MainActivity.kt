@@ -34,24 +34,22 @@ class MainActivity : ComponentActivity() {
     startForegroundService(Intent(this, UuobService::class.java))
     startQuietly(intent)
 
-    val updater = Updater(applicationContext, lifecycleScope)
     lifecycleScope.launch {
       try {
         Core.start(applicationContext)
       } catch (e: Core.Failed) {
         android.util.Log.e("UUOB", "UUOB could not start: ${e.message}")
       }
-      // Coming back to UUOB: questions may be waiting (an app opened uuob://connect), and maybe an update.
+      // Coming back to UUOB: questions may be waiting (an app opened uuob://connect).
       repeatOnLifecycle(Lifecycle.State.RESUMED) {
         shell?.loadAsks()
-        updater.check()
       }
     }
     setContent {
       UuobTheme {
         val scope = rememberCoroutineScope()
         val shell = remember { Shell(scope).also { this.shell = it } }
-        UuobApp(shell, updater)
+        UuobApp(shell)
       }
     }
   }

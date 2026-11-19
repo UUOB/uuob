@@ -4,7 +4,9 @@
 //! version find the next one.
 //!
 //! - Mac: the signed `.app.tar.gz` replaces this `UUOB.app`; the app restarts.
-//! - Android: the signed APK is saved for the system installer (`Updater.kt`).
+//! - Android and Linux don't update themselves: Android through F-Droid or the
+//!   download page, Linux with its install line. (The feed still lists Android,
+//!   for copies from before that still update themselves to this one.)
 
 #[path = "../../uuob-update/src/feed.rs"]
 mod feed;
@@ -44,27 +46,12 @@ pub fn check() -> Result<Option<String>, String> {
 }
 
 /// Downloads the newer version and checks its signature, then installs it on
-/// a Mac (`{"restart": "<the app>"}`) or saves it for the system installer on
-/// Android (`{"apk": "<file>"}`, into `params.dir`). Null when there is
-/// nothing newer.
+/// a Mac (`{"restart": "<the app>"}`). Null when there is nothing newer.
 pub fn install(params: &Json) -> Result<Json, String> {
     let Some((_, file)) = newer()? else { return Ok(Json::Null) };
     let data = get(&file.url)?;
     feed::verify(&data, &file.signature, KEY)?;
     platform::install(data, params)
-}
-
-#[cfg(target_os = "android")]
-mod platform {
-    use super::*;
-    use serde_json::json;
-
-    pub fn install(apk: Vec<u8>, params: &Json) -> Result<Json, String> {
-        let dir = params["dir"].as_str().ok_or("where to save the update is missing")?;
-        let path = std::path::Path::new(dir).join("update.apk");
-        std::fs::write(&path, apk).map_err(|e| e.to_string())?;
-        Ok(json!({ "apk": path }))
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -107,11 +94,15 @@ mod platform {
     }
 }
 
-#[cfg(not(any(target_os = "android", target_os = "macos")))]
+#[cfg(not(target_os = "macos"))]
 mod platform {
     use super::*;
 
     pub fn install(_: Vec<u8>, _: &Json) -> Result<Json, String> {
-        Err("On Linux, update UUOB with its install line (see docs/setup.md).".into())
+        Err(if cfg!(target_os = "android") {
+            "On Android, UUOB updates through F-Droid or its download page.".into()
+        } else {
+            "On Linux, update UUOB with its install line (see docs/setup.md).".into()
+        })
     }
 }
