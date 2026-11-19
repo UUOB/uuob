@@ -27,10 +27,11 @@ pub fn day(ms: f64) -> String {
     glib::DateTime::from_unix_local((ms / 1000.0) as i64).and_then(|d| d.format("%-d %b %Y")).map(|s| s.to_string()).unwrap_or_default()
 }
 
-/// Every app gets a tile the same way: a colour from its id and its first letter.
+/// Every app gets a tile the same way: a colour from its id (the same on every
+/// platform, see `tint` in crates/uuob-app/src/screens.rs) and its first letter.
 pub fn app_tile(app: &str, size: i32) -> gtk::Widget {
     const COLORS: [&str; 8] = ["blue", "red", "orange", "green", "purple", "pink", "teal", "indigo"];
-    let hash = app.bytes().fold(0u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
+    let hash = app.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193));
     tile(&initial(app), COLORS[hash as usize % COLORS.len()], size)
 }
 
@@ -111,7 +112,15 @@ pub fn style() {
          .tile.teal { background: #2190a4; } .tile.indigo { background: #5e5ce6; }
          .qr { border-radius: 16px; padding: 12px; background: white; border: none; }
          .word { border-radius: 10px; padding: 8px 12px; font-size: 1.4em; font-weight: 700; background: alpha(currentColor, 0.08); }
-         .word.number { background: alpha(@accent_bg_color, 0.2); color: @accent_color; }",
+         .word.number { background: alpha(@accent_bg_color, 0.2); color: @accent_color; }
+         .graph { border-radius: 18px; }
+         .node { padding: 0; min-width: 0; min-height: 0; }
+         .node.device { border-radius: 30%; background: alpha(currentColor, 0.12); }
+         .node.app, .node.ai { border-radius: 28%; }
+         .node.person, .node.bubble, .node.fold { border-radius: 999px; }
+         .node.bubble { background: alpha(currentColor, 0.06); border: 1.5px dashed alpha(currentColor, 0.45); font-weight: 700; }
+         .node.dotted { border: 1.5px dashed alpha(currentColor, 0.45); background: none; }
+         .node.picked { outline: 3px solid @accent_color; outline-offset: 2px; }",
     );
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(&display, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);

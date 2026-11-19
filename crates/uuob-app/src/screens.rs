@@ -268,8 +268,23 @@ pub fn access(input: &Input) -> Json {
     json!(rows)
 }
 
-/// The height of a node's label under it.
+/// A node's label under it: its height, and its width (the apps cut longer
+/// names short).
 const LABEL: f64 = 16.0;
+const LABEL_W: f64 = 78.0;
+
+/// Whether two nodes `(x, y, size, has a label)` touch: their shapes, or a
+/// label and a shape, or two labels.
+fn clash(a: (f64, f64, f64, bool), b: (f64, f64, f64, bool)) -> bool {
+    let shape = |(x, y, size, _): (f64, f64, f64, bool)| (x - size / 2.0, y - size / 2.0, x + size / 2.0, y + size / 2.0);
+    let label = |(x, y, size, has): (f64, f64, f64, bool)| has.then(|| (x - LABEL_W / 2.0, y + size / 2.0 + 2.0, x + LABEL_W / 2.0, y + size / 2.0 + LABEL));
+    let meet = |p: (f64, f64, f64, f64), q: (f64, f64, f64, f64)| p.0 < q.2 + 3.0 && q.0 < p.2 + 3.0 && p.1 < q.3 + 3.0 && q.1 < p.3 + 3.0;
+    let round = (a.0 - b.0).hypot(a.1 - b.1) < (a.2 + b.2) / 2.0 + 4.0;
+    round
+        || label(a).is_some_and(|l| meet(l, shape(b)))
+        || label(b).is_some_and(|l| meet(l, shape(a)))
+        || label(a).zip(label(b)).is_some_and(|(p, q)| meet(p, q))
+}
 
 /// One thing drawn in the graph.
 struct Spot {
@@ -541,34 +556,43 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
     }
 
     // Everything inside the frame, with room for labels underneath.
+    // Inside the frame's sides; its height follows what is drawn (below).
     let inside = |sp: &mut Spot| {
         let r = sp.size / 2.0 + 4.0;
         sp.x = sp.x.clamp(r + 24.0 * s, w - r - 24.0 * s);
-        sp.y = sp.y.clamp(r, h - r - 22.0);
     };
     spots.iter_mut().for_each(inside);
-    // A crowded network can still have nodes touching: push them apart, a
-    // little at a time, leaving the devices where they are.
+    // A crowded network can still have nodes (or labels) touching: push them
+    // apart, a little at a time; devices move only for each other.
     for _ in 0..400 {
         let mut moved = false;
         for i in 0..spots.len() {
             for j in i + 1..spots.len() {
-                let (dx, dy) = (spots[j].x - spots[i].x, spots[j].y - spots[i].y);
+                let (a, b) = (&spots[i], &spots[j]);
+                let (dx, dy) = (b.x - a.x, b.y - a.y);
                 let d = dx.hypot(dy);
-                // One above the other: room for the upper one's label too.
-                let label = if dy.abs() > dx.abs() { LABEL } else { 0.0 };
-                let need = (spots[i].size + spots[j].size) / 2.0 + 6.0 + label;
-                if d >= need {
+                let need = (a.size + b.size) / 2.0 + 6.0;
+                if d >= need && !clash((a.x, a.y, a.size, a.kind != "fold"), (b.x, b.y, b.size, b.kind != "fold")) {
                     continue;
                 }
-                let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else { (0.0, 1.0) };
-                let push = need - d + 0.5;
+                // Apart along the line between them: at once when the shapes
+                // overlap, a few points at a time when only a label is in the way.
+                // Only labels in the way, side by side: one above the other
+                // instead (there is always room up and down).
+                let (ux, uy) = if d >= need && dy.abs() < LABEL {
+                    (0.0, if dy < 0.0 { -1.0 } else { 1.0 })
+                } else if d > 1e-6 {
+                    (dx / d, dy / d)
+                } else {
+                    (0.0, 1.0)
+                };
+                let push = if d < need { need - d + 0.5 } else { 3.0 };
                 let (mi, mj) = (spots[i].kind != "device", spots[j].kind != "device");
                 let (pi, pj) = match (mi, mj) {
                     (true, true) => (push / 2.0, push / 2.0),
                     (true, false) => (push, 0.0),
                     (false, true) => (0.0, push),
-                    (false, false) => continue,
+                    (false, false) => (push / 2.0, push / 2.0),
                 };
                 spots[i].x -= ux * pi;
                 spots[i].y -= uy * pi;
@@ -584,10 +608,11 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
         }
     }
     let round = |v: f64| (v * 10.0).round() / 10.0;
-    // As tall as what is drawn (a lone device needs no 420 points).
+    // As tall as what is drawn: a lone device needs no 420 points, a crowded
+    // network on a phone may need more.
     let top = spots.iter().map(|sp| sp.y - sp.size / 2.0).fold(f64::MAX, f64::min);
     let bottom = spots.iter().map(|sp| sp.y + sp.size / 2.0 + if sp.kind == "fold" { 0.0 } else { LABEL + 6.0 }).fold(f64::MIN, f64::max);
-    let (shift, h) = if spots.is_empty() { (0.0, h) } else { (top - 16.0, (bottom - top + 32.0).min(h)) };
+    let (shift, h) = if spots.is_empty() { (0.0, h) } else { (top - 16.0, bottom - top + 32.0) };
     for sp in &mut spots {
         sp.y -= shift;
     }
@@ -655,7 +680,7 @@ mod tests {
                 "c1": app("calendar", "Calendar", "mac"), "c2": app("tasks", "Tasks", "mac"),
                 "c3": app("photos", "Photos", "mac"), "c4": app("notes", "Notes", "mac"),
                 "c5": app("calendar", "Calendar", "pixel"), "c6": app("tasks", "Tasks", "pixel"),
-                "c7": {"name": "Claude", "on": "mac"},
+                "c7": {"name": "Claude", "on": "mac"}, "c10": {"name": "Claude on my laptop", "on": "mac"},
                 "c8": {"name": "Journal", "app": "journal", "endpoint": "e1", "device": "Work laptop"},
                 "c9": {"name": "Tasks", "app": "tasks"},
             },
@@ -695,7 +720,7 @@ mod tests {
         let rows = access(&mockup());
         let row = |key: &str| rows.as_array().unwrap().iter().find(|r| r["key"] == key).unwrap().clone();
         let kinds: Vec<&str> = rows.as_array().unwrap().iter().map(|r| r["kind"].as_str().unwrap()).collect();
-        assert_eq!(kinds, ["app", "app", "app", "app", "app", "app", "ai", "person", "person", "person", "person", "person"], "apps, AI, people");
+        assert_eq!(kinds, ["app", "app", "app", "app", "app", "app", "ai", "ai", "person", "person", "person", "person", "person"], "apps, AI, people");
         assert_eq!(row("app:old")["summary"], "Not connected · its data is kept");
         assert_eq!(row("app:calendar")["summary"], "Reads and writes Calendar · reads Tasks");
         assert_eq!(row("app:calendar")["where"], "This device and Pixel 8");
@@ -723,7 +748,7 @@ mod tests {
         for id in ["app:dev:mac:photos", "app:dev:mac:notes", "person:p5", "fold:apps:mac", "fold:people"] {
             find(&g, id);
         }
-        assert_eq!(find(&g, "dev:mac")["about"]["detail"], "Online · runs Calendar, Claude, Notes, Photos and Tasks.");
+        assert_eq!(find(&g, "dev:mac")["about"]["detail"], "Online · runs Calendar, Claude, Claude on my laptop, Notes, Photos and Tasks.");
     }
 
     #[test]
@@ -747,10 +772,9 @@ mod tests {
                     assert!(ax - ar >= 0.0 && ax + ar <= w && ay - ar >= 0.0 && ay + ar <= h, "{} inside at {width}", a["id"]);
                     for b in &all[i + 1..] {
                         let (bx, by, br) = (b["x"].as_f64().unwrap(), b["y"].as_f64().unwrap(), b["size"].as_f64().unwrap() / 2.0);
-                        // A node right above another leaves room for its label.
-                        let label = if (ay - by).abs() > (ax - bx).abs() { LABEL } else { 0.0 };
-                        let gap = (ax - bx).hypot(ay - by) - ar - br - label;
-                        assert!(gap >= 4.0, "{} and {} overlap at width {width} with {groups:?} (gap {gap:.1})", a["id"], b["id"]);
+                        let node = |n: &Json, x: f64, y: f64, r: f64| (x, y, r * 2.0, n["kind"] != "fold");
+                        assert!(!clash(node(a, ax, ay, ar), node(b, bx, by, br)),
+                            "{} and {} (or their labels) touch at width {width} with {groups:?}: ({ax}, {ay}, {ar}) ({bx}, {by}, {br})", a["id"], b["id"]);
                     }
                 }
             }

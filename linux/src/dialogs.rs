@@ -14,6 +14,10 @@ type Sender = ComponentSender<App>;
 
 #[derive(Debug, Clone)]
 pub enum Open {
+    /// Access → Add: an app, a person or an AI?
+    Add,
+    /// A person: show your code or enter theirs.
+    PersonHow,
     AddDevice,
     Join,
     Leave,
@@ -179,6 +183,37 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
         move |m: &'static str, p: Value, t: Option<String>| sender.input(Msg::Act(m, p, t))
     };
     match what {
+        Open::Add => {
+            let d = alert("What are you adding?", "An app on one of your devices, someone with their own UUOB, or an AI assistant. Each sees only what you allow.");
+            d.add_responses(&[("cancel", "Cancel"), ("app", "An App"), ("person", "A Person"), ("ai", "An AI")]);
+            d.set_close_response("cancel");
+            let sender = sender.clone();
+            d.connect_response(None, move |_, r| match r {
+                "app" => sender.input(Msg::Dialog(Open::AppCode)),
+                "person" => sender.input(Msg::Dialog(Open::PersonHow)),
+                "ai" => sender.input(Msg::Dialog(Open::ConnectAi)),
+                _ => {}
+            });
+            d.present(Some(root));
+        }
+        Open::PersonHow => {
+            let named = !s(&data.status["network"], "name").is_empty();
+            let d = alert("Add a person", "Link with someone who has their own UUOB. Then share a list or a calendar with them from its app. They see only what you share.");
+            d.add_responses(&[("cancel", "Cancel"), ("enter", "Enter Their Code"), ("show", "Show My Code")]);
+            d.set_response_appearance("show", adw::ResponseAppearance::Suggested);
+            d.set_close_response("cancel");
+            let sender = sender.clone();
+            d.connect_response(None, move |_, r| {
+                let next = match r {
+                    "show" => Open::AddPerson,
+                    "enter" => Open::Meet,
+                    _ => return,
+                };
+                // Linking needs a name for the other person to see.
+                sender.input(Msg::Dialog(if named { next } else { Open::Name(String::new(), Some(Box::new(next))) }));
+            });
+            d.present(Some(root));
+        }
         Open::Leave => confirm(root, "Leave this network?", "This device stops syncing with your other devices. Everything already on it stays here.", "Leave",
             move || act("leave_network", Value::Null, Some("This device now has its own network".into()))),
         Open::RemoveDevice(d) => {
@@ -210,7 +245,7 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                     }
                 });
             }),
-        Open::Join => ask_text(root, "Join a network", "On a device that’s already set up, open Devices → Add a device and type the code it shows. Anything already on this device is kept and merged into the network.",
+        Open::Join => ask_text(root, "Join a network", "On a device that’s already set up, open Network → Add a device and type the code it shows. Anything already on this device is kept and merged into the network.",
             "e.g. 42 amber river falcon", "", "Join", complete, move |code| {
                 let sender = sender.clone();
                 relm4::spawn_local(async move {
@@ -221,7 +256,7 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                     sender.input(Msg::Reload);
                 });
             }),
-        Open::Meet => ask_text(root, "Enter a code", "Ask the other person to open People → Add a person in their UUOB (or to share something with someone new), and type the code they see. Your devices and data stay your own.",
+        Open::Meet => ask_text(root, "Enter a code", "Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see. Your devices and data stay your own.",
             "e.g. 42 amber river falcon", "", "Link", complete, move |code| {
                 let sender = sender.clone();
                 relm4::spawn_local(async move {
@@ -233,7 +268,7 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                 });
             }),
         Open::AddDevice => code_sheet(root, sender, "Add a device", "On the other device, open UUOB, choose Join a network and enter this code.", "create_invite", Value::Null, "Waiting for your device…", Joined::Device),
-        Open::AddPerson => code_sheet(root, sender, "Add a person", "They open UUOB on their device, go to People → Enter a code and type this. This links the two of you; it doesn’t share anything.", "create_person_invite", Value::Null, "Waiting for them…", Joined::Person(data.people.iter().map(|p| s(p, "id").to_string()).collect())),
+        Open::AddPerson => code_sheet(root, sender, "Add a person", "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this. This links the two of you; it doesn’t share anything.", "create_person_invite", Value::Null, "Waiting for them…", Joined::Person(data.people.iter().map(|p| s(p, "id").to_string()).collect())),
         Open::AppCode => code_sheet(root, sender, "Connect with a code", "Type this code into the app. It also works in an app on a device that has no UUOB.", "create_app_code", Value::Null, "Works once.", Joined::Nothing),
         Open::Export(_, name, containers) => drop(relm4::spawn_local(async move {
             let mut all = serde_json::Map::new();
@@ -281,7 +316,7 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                 (format!("“{}” wants to use your network", s(&a, "name")), "It gets its own place for its data, synced to all your devices. It can’t see anything else unless you allow it.".to_string())
             } else {
                 let what = if s(&a, "access") == "write" { "read and change" } else { "read" };
-                (format!("“{}” wants to {what} your {} data", s(&a, "app_name"), s(&a, "container_name")), "You can change this any time in Apps.".to_string())
+                (format!("“{}” wants to {what} your {} data", s(&a, "app_name"), s(&a, "container_name")), "You can change this any time in Access.".to_string())
             };
             let d = alert(&heading, &body);
             d.add_responses(&[("deny", "Don’t Allow"), ("allow", "Allow")]);
@@ -479,7 +514,7 @@ fn share_sheet(root: &adw::ApplicationWindow, sender: Sender, ask: Value, data: 
 /// "Share with someone new": a code that links the person and shares this with them.
 fn someone_new(body: &gtk::Box, container: &str, access: &str, list: Rc<RefCell<Option<Box<dyn Fn()>>>>, invite: Rc<RefCell<Option<String>>>) {
     clear(body);
-    body.append(&text("They open UUOB on their device, go to People → Enter a code and type this.", &[]));
+    body.append(&text("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", &[]));
     let (b2, c2, l2, i2) = (body.downgrade(), container.to_string(), list.clone(), invite.clone());
     body.append(&choice(&[("read", "Can view"), ("write", "Can edit")], access, move |v| {
         if let Some(b) = b2.upgrade() {

@@ -4,6 +4,7 @@
 //! UUOB again brings it back, and "Quit UUOB" in the menu stops it.
 
 mod dialogs;
+mod graph;
 mod ui;
 
 use relm4::adw::prelude::*;
@@ -27,10 +28,14 @@ fn data_dir() -> std::path::PathBuf {
     std::env::var_os("XDG_DATA_HOME").map(Into::into).unwrap_or_else(|| home.join(".local/share")).join("app.uuob")
 }
 
-/// Everything the four pages show, loaded together.
+/// Everything the three pages show, loaded together.
 #[derive(Default, Clone, Debug)]
 pub struct Data {
     pub status: Value,
+    /// The Network page's graph and the Access page's list (crates/uuob-app/src/screens.rs).
+    pub graph: Value,
+    pub access: Vec<Value>,
+    pub version: String,
     pub devices: Vec<Value>,
     pub people: Vec<Value>,
     pub containers: Vec<Value>,
@@ -42,10 +47,13 @@ pub struct Data {
     pub server_error: Option<String>,
 }
 
-async fn load() -> Data {
+async fn load(width: f64, open: Vec<String>) -> Data {
     let list = |v: Result<Value, String>| v.ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
     Data {
         status: call("status", Value::Null).await.unwrap_or_default(),
+        graph: call("graph", serde_json::json!({ "width": width, "open": open })).await.unwrap_or_default(),
+        access: list(call("access", Value::Null).await),
+        version: call("version", Value::Null).await.ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(),
         devices: list(call("devices", Value::Null).await),
         people: list(call("people", Value::Null).await),
         containers: list(call("containers", Value::Null).await),
@@ -68,6 +76,14 @@ pub enum Msg {
     Toast(String),
     Dialog(dialogs::Open),
     InstallUpdate,
+    /// The graph: open or fold a group; pick a node to see what it is.
+    Toggle(String),
+    Pick(String),
+    /// Access: open one app, person or AI (its key), or go back to the list.
+    Row(Option<String>),
+    Filter(String),
+    /// The window's width changed: the graph may need laying out again.
+    Resized,
 }
 
 #[derive(Debug)]
@@ -87,13 +103,20 @@ pub struct App {
     update: Option<String>,
     /// The latest change, for a dialog waiting for one (a device joining).
     pub last_event: Value,
+    /// The graph's open groups, its picked node and the width it was laid out for.
+    open: std::collections::BTreeSet<String>,
+    picked: Option<String>,
+    width: f64,
+    /// What Access shows: one entry (its key), and which kinds in the list.
+    row: Option<String>,
+    show: String,
 }
 
 pub struct Widgets {
     toasts: adw::ToastOverlay,
     banner: adw::Banner,
     update: gtk::Button,
-    pages: [adw::PreferencesPage; 4],
+    pages: [adw::PreferencesPage; 3],
     groups: Vec<(usize, adw::PreferencesGroup)>,
     stack: adw::ViewStack,
 }
@@ -113,12 +136,11 @@ impl relm4::Component for App {
     fn init(_: (), root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
         style();
         let stack = adw::ViewStack::new();
-        let pages: [adw::PreferencesPage; 4] = std::array::from_fn(|_| adw::PreferencesPage::new());
+        let pages: [adw::PreferencesPage; 3] = std::array::from_fn(|_| adw::PreferencesPage::new());
         for (page, (id, title, icon)) in pages.iter().zip([
-            ("devices", "Devices", "computer-symbolic"),
-            ("people", "People", "system-users-symbolic"),
-            ("apps", "Apps", "view-app-grid-symbolic"),
-            ("ai", "AI access", "starred-symbolic"),
+            ("network", "Network", "network-workgroup-symbolic"),
+            ("access", "Access", "security-high-symbolic"),
+            ("settings", "Settings", "emblem-system-symbolic"),
         ]) {
             stack.add_titled_with_icon(page, Some(id), title, icon);
         }
@@ -187,7 +209,23 @@ impl relm4::Component for App {
         sender.oneshot_command(async { Cmd::Update(call("update_check", Value::Null).await.ok().and_then(|v| v.as_str().map(String::from))) });
         sender.input(Msg::Reload);
 
-        let model = App { data: Data::default(), shown: None, later: Vec::new(), update: None, last_event: Value::Null };
+        root.connect_default_width_notify({
+            let sender = sender.clone();
+            move |_| sender.input(Msg::Resized)
+        });
+        let width = graph_width(root.default_width());
+        let model = App {
+            data: Data::default(),
+            shown: None,
+            later: Vec::new(),
+            update: None,
+            last_event: Value::Null,
+            open: Default::default(),
+            picked: None,
+            width,
+            row: None,
+            show: "all".into(),
+        };
         ComponentParts { model, widgets: Widgets { toasts, banner, update, pages, groups: Vec::new(), stack } }
     }
 
@@ -205,7 +243,37 @@ impl relm4::Component for App {
                 }
                 sender.input(Msg::Reload);
             }
-            Msg::Reload => sender.oneshot_command(async { Cmd::Loaded(Box::new(load().await)) }),
+            Msg::Reload => {
+                let (width, open) = (self.width, self.open.iter().cloned().collect());
+                sender.oneshot_command(async move { Cmd::Loaded(Box::new(load(width, open).await)) })
+            }
+            Msg::Toggle(group) => {
+                if !self.open.remove(&group) {
+                    self.open.insert(group);
+                }
+                sender.input(Msg::Reload);
+            }
+            Msg::Pick(id) => {
+                self.picked = Some(id);
+                self.render(w, &sender);
+            }
+            Msg::Row(key) => {
+                self.row = key;
+                self.render(w, &sender);
+            }
+            Msg::Filter(show) => {
+                if self.show != show {
+                    self.show = show;
+                    self.render(w, &sender);
+                }
+            }
+            Msg::Resized => {
+                let width = graph_width(root.default_width());
+                if (width - self.width).abs() > 24.0 {
+                    self.width = width;
+                    sender.input(Msg::Reload);
+                }
+            }
             Msg::Act(method, params, toast) => sender.oneshot_command(async move { Cmd::Done(call(method, params).await.map(drop), toast) }),
             Msg::Toast(text) => w.toasts.add_toast(adw::Toast::new(&text)),
             Msg::Dialog(open) => dialogs::open(open, root, &sender, &self.data),
@@ -285,7 +353,7 @@ impl App {
         }
     }
 
-    /// Rebuilds the four pages from the latest data.
+    /// Rebuilds the three pages from the latest data.
     fn render(&self, w: &mut Widgets, sender: &ComponentSender<Self>) {
         for (page, group) in w.groups.drain(..) {
             w.pages[page].remove(&group);
@@ -294,19 +362,16 @@ impl App {
             w.pages[page].add(&group);
             w.groups.push((page, group));
         };
-        for g in pages::devices(&self.data, sender) {
+        for g in pages::network(&self.data, self.picked.as_deref(), sender) {
             add(0, g);
         }
-        for g in pages::people(&self.data, sender) {
+        for g in pages::access(&self.data, self.row.as_deref(), &self.show, sender) {
             add(1, g);
         }
-        for g in pages::apps(&self.data, sender) {
+        for g in pages::settings(&self.data, sender) {
             add(2, g);
         }
-        for g in pages::ai(&self.data, sender) {
-            add(3, g);
-        }
-        // UUOB_SCREEN=people opens on that page (for screenshots).
+        // UUOB_SCREEN=access opens on that page (for screenshots).
         if let Ok(screen) = std::env::var("UUOB_SCREEN") {
             w.stack.set_visible_child_name(&screen);
         }
@@ -314,6 +379,11 @@ impl App {
 }
 
 mod pages;
+
+/// How wide the graph is drawn in a window this wide (pages are at most about 600 wide).
+fn graph_width(window: i32) -> f64 {
+    (window as f64 - 48.0).clamp(300.0, 600.0)
+}
 
 fn main() {
     let dir = data_dir();

@@ -1,4 +1,6 @@
-//! The four pages, rebuilt from the latest data each time something changes.
+//! The three pages (Network, Access, Settings), rebuilt from the latest data
+//! each time something changes. Access opens one app, person or AI at a time,
+//! with what the four pages before them showed for it.
 
 use relm4::adw::prelude::*;
 use relm4::{ComponentSender, adw, gtk};
@@ -58,14 +60,29 @@ fn platform(p: &str) -> &str {
     }
 }
 
-pub fn devices(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+/// Network: the graph, what is picked in it, then your devices.
+pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::PreferencesGroup> {
     let mut out = Vec::new();
-    let list = group("", "Your devices form one private network. Every app’s data lives on them, synced and end-to-end encrypted. No cloud, no accounts.");
+    let top = group("", "Your devices in the middle, each app on the device it runs on, people at the edge.");
+    if d.graph["nodes"].is_array() {
+        top.add(&crate::graph::graph(&d.graph, picked, sender));
+    }
+    out.push(top);
+    let nodes = d.graph["nodes"].as_array().cloned().unwrap_or_default();
+    let shown = nodes.iter().find(|n| Some(s(n, "id")) == picked).or_else(|| nodes.iter().find(|n| n["self"].as_bool() == Some(true)));
+    if let Some(about) = shown.map(|n| &n["about"]) {
+        let g = group(s(about, "kind"), "");
+        g.add(&adw::ActionRow::builder().title(s(about, "title")).subtitle(s(about, "detail")).css_classes(["property"]).build());
+        out.push(g);
+    }
+
+    let list = group("Devices", "");
     for dev in &d.devices {
         let me = dev["is_self"].as_bool() == Some(true);
         let online = dev["online"].as_bool() == Some(true);
         let status = if me { "This device" } else if online { "Online" } else { "Offline" };
-        let row = adw::ActionRow::builder().title(s(dev, "name")).subtitle(format!("{status} · {}", platform(s(dev, "platform")))).build();
+        let keeps = if dev["keeper"].as_bool() == Some(true) { " · keeps everything" } else { "" };
+        let row = adw::ActionRow::builder().title(s(dev, "name")).subtitle(format!("{status} · {}{keeps}", platform(s(dev, "platform")))).build();
         let phone = matches!(s(dev, "platform"), "android" | "ios");
         row.add_prefix(&gtk::Image::builder().icon_name(if phone { "phone-symbolic" } else { "computer-symbolic" }).pixel_size(28).build());
         if me {
@@ -78,6 +95,36 @@ pub fn devices(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
         list.add(&row);
     }
     out.push(list);
+    let add = button("Add a Device…", &["suggested-action"], sender, || Msg::Dialog(Open::AddDevice));
+    out.push(if d.devices.len() <= 1 { actions(&[add, button("Join a Network…", &[], sender, || Msg::Dialog(Open::Join))]) } else { actions(&[add]) });
+    out
+}
+
+/// Settings: your name, this computer, storage, updates, leaving the network.
+pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+    let mut out = Vec::new();
+    let me = s(&d.status["network"], "name").to_string();
+    let you = group("You", "");
+    let row = adw::ActionRow::builder().title(if me.is_empty() { "No name yet" } else { &me }).subtitle("The name people you link with see").build();
+    row.add_prefix(&avatar(&me, 40));
+    let current = me.clone();
+    row.add_suffix(&icon_button("document-edit-symbolic", "Change name", sender, move || Msg::Dialog(Open::Name(current.clone(), None))));
+    you.add(&row);
+    out.push(you);
+
+    let this = group("This computer", "");
+    let row = adw::SwitchRow::builder().title("Start at login").subtitle("UUOB starts in the background when you log in, so your apps and devices stay in sync.").active(d.autostart).build();
+    let s2 = sender.clone();
+    row.connect_active_notify(move |r| s2.input(Msg::Act("set_autostart", json!({ "on": r.is_active() }), None)));
+    this.add(&row);
+    let ok = d.server_error.is_none();
+    let row = adw::ActionRow::builder()
+        .title("Apps can connect")
+        .subtitle(d.server_error.clone().unwrap_or_else(|| format!("Only from this computer, and only the ones you allow in Access. AI server: {}", d.mcp_url)))
+        .build();
+    row.add_suffix(&gtk::Label::builder().label(if ok { "Running" } else { "Stopped" }).css_classes([if ok { "success" } else { "error" }]).build());
+    this.add(&row);
+    out.push(this);
 
     let alone = d.devices.len() <= 1;
     if !alone {
@@ -109,42 +156,84 @@ pub fn devices(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
         out.push(storage);
     }
 
-    let this = group("This computer", "");
-    let row = adw::SwitchRow::builder().title("Start at login").subtitle("UUOB starts in the background when you log in, so your apps and devices stay in sync.").active(d.autostart).build();
-    let s2 = sender.clone();
-    row.connect_active_notify(move |r| s2.input(Msg::Act("set_autostart", json!({ "on": r.is_active() }), None)));
-    this.add(&row);
-    out.push(this);
+    let updates = group("Updates", "");
+    updates.add(&adw::ActionRow::builder().title(format!("UUOB {}", d.version)).subtitle("When a new version is out, an Update button appears at the top.").build());
+    out.push(updates);
 
-    let add = button("Add a Device…", &["suggested-action"], sender, || Msg::Dialog(Open::AddDevice));
-    out.push(if alone {
-        actions(&[add, button("Join a Network…", &[], sender, || Msg::Dialog(Open::Join))])
-    } else {
-        actions(&[add, button("Leave This Network…", &["destructive-action"], sender, || Msg::Dialog(Open::Leave))])
-    });
+    if !alone {
+        let net = group("Network", "");
+        let row = adw::ActionRow::builder().title("Leave this network").subtitle("This computer stops syncing with your other devices.").build();
+        row.add_suffix(&button("Leave…", &["destructive-action"], sender, || Msg::Dialog(Open::Leave)));
+        net.add(&row);
+        out.push(net);
+    }
     out
 }
 
-pub fn people(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = Vec::new();
-    let me = s(&d.status["network"], "name").to_string();
-    let intro = group("", "Share a list or a calendar with someone who has their own UUOB. They see only what you share with them. Everything else stays private.");
-    if !me.is_empty() {
-        let row = adw::ActionRow::builder().title(&me).subtitle("You · the name other people see").build();
-        row.add_prefix(&avatar(&me, 40));
-        let current = me.clone();
-        row.add_suffix(&icon_button("document-edit-symbolic", "Change name", sender, move || Msg::Dialog(Open::Name(current.clone(), None))));
-        intro.add(&row);
+/// Access: every app, person and AI, filtered; or the one that is open.
+pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+    if let Some(key) = open {
+        let (kind, id) = key.split_once(':').unwrap_or_default();
+        let detail = match kind {
+            "app" => apps(d, id, sender),
+            "person" => people(d, id, sender),
+            _ => ai(d, id, sender),
+        };
+        // Gone (disconnected, removed): back to the list.
+        if !detail.is_empty() {
+            let back = gtk::Button::builder().icon_name("go-previous-symbolic").label("Access").css_classes(["flat"]).halign(gtk::Align::Start).build();
+            back.set_child(Some(&adw::ButtonContent::builder().icon_name("go-previous-symbolic").label("Access").build()));
+            let s2 = sender.clone();
+            back.connect_clicked(move |_| s2.input(Msg::Row(None)));
+            let top = adw::PreferencesGroup::new();
+            top.add(&back);
+            return std::iter::once(top).chain(detail).collect();
+        }
     }
-    out.push(intro);
+    let list = group("", "Everything that can reach your data, and what each one can read or write.");
+    let head = gtk::Box::builder().spacing(12).build();
+    let s2 = sender.clone();
+    head.append(&choice(&[("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], show, move |v| s2.input(Msg::Filter(v))));
+    let add = button("Add…", &["suggested-action", "pill"], sender, || Msg::Dialog(Open::Add));
+    add.set_hexpand(true);
+    add.set_halign(gtk::Align::End);
+    head.append(&add);
+    head.set_margin_bottom(12);
+    list.add(&head);
+    let rows: Vec<&Value> = d.access.iter().filter(|r| show == "all" || s(r, "kind") == show).collect();
+    if d.access.is_empty() {
+        list.add(&adw::StatusPage::builder().icon_name("security-high-symbolic").title("Nothing has access yet")
+            .description("Install an app that works with UUOB and open it: it asks to connect. You can also link with a person or connect an AI with Add.").build());
+    }
+    let items = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
+    for r in rows {
+        let kind = s(r, "kind");
+        let badge = match kind { "app" => "App", "person" => "Person", _ => "AI" };
+        let mut sub = s(r, "summary").to_string();
+        if !s(r, "where").is_empty() && kind != "person" {
+            sub += &format!("\n{}", s(r, "where"));
+        }
+        let row = adw::ActionRow::builder().title(format!("{} · {badge}", s(r, "name"))).subtitle(sub).activatable(true).build();
+        row.add_prefix(&match kind {
+            "app" => app_tile(s(r, "id"), 40),
+            "person" => avatar(s(r, "name"), 40),
+            _ => {
+                let i = gtk::Image::builder().icon_name("starred-symbolic").pixel_size(20).width_request(40).height_request(40).css_classes(["tile", "purple"]).build();
+                i.upcast()
+            }
+        });
+        row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+        let (s2, key) = (sender.clone(), s(r, "key").to_string());
+        row.connect_activated(move |_| s2.input(Msg::Row(Some(key.clone()))));
+        items.append(&row);
+    }
+    list.add(&items);
+    vec![list]
+}
 
-    if d.people.is_empty() {
-        let g = group("", "");
-        g.add(&adw::StatusPage::builder().icon_name("system-users-symbolic").title("No people yet")
-            .description("Link with a partner, a family member or a colleague. Then share a list or a calendar with them from their app.").build());
-        out.push(g);
-    }
-    for p in &d.people {
+pub fn people(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+    let mut out = Vec::new();
+    for p in d.people.iter().filter(|p| s(p, "id") == only) {
         let name = s(p, "name").to_string();
         let g = group("", "");
         let online = p["online"].as_bool() == Some(true);
@@ -191,31 +280,18 @@ pub fn people(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
         }
         out.push(g);
     }
-    let named = !me.is_empty();
-    out.push(actions(&[
-        button("Add a Person…", &["suggested-action"], sender, move || if named { Msg::Dialog(Open::AddPerson) } else { Msg::Dialog(Open::Name(String::new(), Some(Box::new(Open::AddPerson)))) }),
-        button("Enter a Code…", &[], sender, move || if named { Msg::Dialog(Open::Meet) } else { Msg::Dialog(Open::Name(String::new(), Some(Box::new(Open::Meet)))) }),
-    ]));
     out
 }
 
-pub fn apps(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+pub fn apps(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
     let mut out = Vec::new();
-    let intro = group("", "Apps keep their data here, each in its own place, synced to all your devices. An app sees only its own data unless you allow more. To share a list or a calendar with someone, open it in its app and choose Share.");
-    out.push(intro);
     let keepers = d.devices.iter().filter(|v| v["keeper"].as_bool() == Some(true)).count() as u64;
     let needed = d.status["network"]["copies"].as_u64().unwrap_or(1);
     let mut ids: Vec<&str> = Vec::new();
     for c in &d.containers {
-        if !ids.contains(&s(c, "owner_app")) {
+        if s(c, "owner_app") == only && !ids.contains(&s(c, "owner_app")) {
             ids.push(s(c, "owner_app"));
         }
-    }
-    if ids.is_empty() {
-        let g = group("", "");
-        g.add(&adw::StatusPage::builder().icon_name("view-app-grid-symbolic").title("No apps yet")
-            .description("Install an app that works with UUOB on this computer and open it. It will ask to connect. On a device without UUOB, the app connects with a code.").build());
-        out.push(g);
     }
     for id in ids {
         let cs: Vec<&Value> = d.containers.iter().filter(|c| s(c, "owner_app") == id).collect();
@@ -277,18 +353,12 @@ pub fn apps(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
         g.add(&b);
         out.push(g);
     }
-    out.push(actions(&[button("Connect with a Code…", &[], sender, || Msg::Dialog(Open::AppCode))]));
     out
 }
 
-pub fn ai(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = vec![group("", "Let an AI assistant (Claude, or any app that supports MCP) work with your data. It sees only what you allow, app by app. Nothing by default.")];
-    let clients: Vec<(&String, &Value)> = d.clients.as_object().map(|m| m.iter().filter(|(_, c)| c["app"].is_null()).collect()).unwrap_or_default();
-    if clients.is_empty() {
-        let g = group("", "");
-        g.add(&adw::StatusPage::builder().icon_name("starred-symbolic").title("No AI connected").description("Connect one, then choose exactly which data it may read or change.").build());
-        out.push(g);
-    }
+pub fn ai(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
+    let mut out = vec![];
+    let clients: Vec<(&String, &Value)> = d.clients.as_object().map(|m| m.iter().filter(|(id, c)| c["app"].is_null() && id.as_str() == only).collect()).unwrap_or_default();
     let mut apps: Vec<&Value> = Vec::new();
     for c in &d.containers {
         if !apps.iter().any(|a| s(a, "owner_app") == s(c, "owner_app")) {
@@ -313,8 +383,5 @@ pub fn ai(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
         }
         out.push(g);
     }
-    let foot = actions(&[button("Connect an AI…", &["suggested-action"], sender, || Msg::Dialog(Open::ConnectAi))]);
-    foot.set_description(Some(&format!("Server: {} · only reachable from this computer", d.mcp_url)));
-    out.push(foot);
     out
 }
