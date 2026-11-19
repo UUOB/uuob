@@ -50,7 +50,7 @@ struct GraphView: View {
                 .onAppear { width = geo.size.width }
                 .onChange(of: geo.size.width) { _, w in if abs(w - width) > 20 { width = w } }
             }
-            .frame(height: max(graph.height.double, 420))
+            .frame(height: graph.height.double)
             .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             if let about = shown?.about {
