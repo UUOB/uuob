@@ -20,7 +20,7 @@ Downloads for everything: **[github.com/jachymri/uuob-releases](https://github.c
 3. The first time you open it, macOS blocks it, because the app isn't signed with a paid Apple account.
    Go to **System Settings → Privacy & Security** and click **Open Anyway**.
 4. UUOB lives in the **menu bar** (top right). To keep it running, turn on
-   **Devices → This computer → Start at login**.
+   **Settings → This Mac → Start at login**.
 
 With Homebrew instead:
 
@@ -35,7 +35,7 @@ brew install --cask uuob
 2. When asked, allow your browser to install apps.
 3. Open UUOB and allow notifications, so you see that it is running. Calendar and Tasks ask too, when you
    first open them: their alerts are their own notifications.
-4. Optional: turn on **Devices → This phone → Start when the phone turns on**.
+4. Optional: turn on **Settings → This phone → Start when the phone turns on**.
 
 With F-Droid instead: add this repository in F-Droid (or Droid-ify), then install UUOB from there. Updates
 then come through F-Droid.
@@ -90,7 +90,7 @@ docker exec uuob uuob join 42-amber-river-falcon
 
 Your first device needs nothing: it starts as a network of one. To add another device:
 
-1. On a device that's **already set up**, open **Devices → Add a device**. It shows a code like
+1. On a device that's **already set up**, open **Network → Add a device**. It shows a code like
    `42-amber-river-falcon` and a QR code.
 2. On the **new device**, open UUOB, choose **Join a network**, and type the code or tap **Scan QR code**.
    On a server, run `uuob join <code>`.
@@ -106,25 +106,26 @@ A server can also make the code: run `uuob invite` there, then type that code on
 2. Open the app. It finds UUOB on the same device and asks to connect.
 3. UUOB asks, for example, *"Tasks wants to use your network"*. Tap **Allow**.
 
-Done. The app's data now lives in UUOB and appears on all your devices.
+Done. The app's data now lives in UUOB and appears on all your devices. **Network** shows it on the
+device it runs on, and **Access** what it can read and write.
 
 ### On a device without UUOB
 
 An app also works on a device where UUOB isn't installed. It then uses UUOB on your other devices.
 
-1. In UUOB on any of your devices, open **Apps → Connect with a code**. On a server, run `uuob app-code`.
+1. In UUOB on any of your devices, open **Access → Add → An app**. On a server, run `uuob app-code`.
 2. In the app, choose **Use a code instead** and type the code.
 
 ## Extras
 
-- **Share with someone.** Once, link with them: one of you opens **People → Add a person** and the other
-  types the code it shows. Then open a list in
+- **Share with someone.** Once, link with them: one of you opens **Access → Add → A person → Show my
+  code** and the other types the code it shows (**Enter their code**). Then open a list in
   Tasks or a calendar in Calendar and choose **Share**, with *Can view* or *Can edit*.
 - **Up next widget (Android).** Long-press the home screen → **Widgets** → **Calendar** → **Up next**. It
   shows today and tomorrow side by side, from the hour you are in.
-- **Storage devices.** In **Devices → Storage devices**, turn on the switch for a device with plenty of
+- **Storage devices.** In **Settings → Storage devices**, turn on the switch for a device with plenty of
   space that is usually on. Apps with large data, like Photos, can then keep less on your phone.
-- **AI access.** **AI access → Connect an AI** lets an AI assistant (Claude or another) use your data. It
+- **AI access.** **Access → Add → An AI** lets an AI assistant (Claude or another) use your data. It
   starts with no access, and you choose what it may read or change, app by app.
 - **Updates.** Each app shows an **Update** button when a new version is out. Every update is signed and
   checked before it installs.
