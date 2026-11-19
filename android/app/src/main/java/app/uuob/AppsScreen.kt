@@ -62,7 +62,7 @@ private sealed interface AppSheet {
 }
 
 @Composable
-fun AppsScreen(shell: Shell, top: @Composable () -> Unit) {
+fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: () -> Unit) {
   val ctx = LocalContext.current
   var groups by remember { mutableStateOf(listOf<AppGroup>()) }
   var keepers by remember { mutableIntStateOf(0) }
@@ -75,7 +75,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit) {
     val clients = Core.obj("clients").entries()
     keepers = Core.list("devices").count { it.optBoolean("keeper") }
     needed = Core.obj("status").optJSONObject("network")?.optInt("copies", 1) ?: 1
-    groups = containers.map { it.optString("owner_app") }.distinct().map { id ->
+    groups = containers.map { it.optString("owner_app") }.distinct().filter { it == only }.map { id ->
       AppGroup(
         id, apps.optJSONObject(id)?.optString("name") ?: id, apps.optJSONObject(id)?.optBoolean("installed") == true,
         containers.filter { it.optString("owner_app") == id },
@@ -85,7 +85,10 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit) {
     }
   }
   fun reload() = shell.act { load() }
-  LaunchedEffect(shell.tick) { runCatching { load() } }
+  var loaded by remember { mutableStateOf(false) }
+  LaunchedEffect(shell.tick) { runCatching { load(); loaded = true } }
+  // Disconnected with its data deleted: nothing left to show.
+  LaunchedEffect(loaded, groups) { if (loaded && groups.isEmpty()) onBack() }
 
   fun storageNote(g: AppGroup) = listOfNotNull(
     if (g.files == 0) null else if (g.filesHere == g.files) plural(g.files, "file", "files") else "${g.filesHere} of ${g.files} files on this device",
@@ -102,17 +105,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit) {
     }
   }
 
-  Page("Apps", "Apps like Tasks and Calendar keep their data here, each in its own place, synced to all your devices. An app sees only its own data unless you allow more.", top) {
-    block {
-      Caption("To share a list or a calendar with someone, open it in its app and choose Share.", Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
-      FilledTonalButton(onClick = { sheet = AppSheet.Code }) {
-        Icon(Icons.Rounded.Add, null)
-        Text("  Connect with a code")
-      }
-    }
-    if (groups.isEmpty()) block {
-      Empty(Icons.Rounded.Widgets, "No apps yet", "Install an app like Tasks or Calendar on this device and open it. It will ask to connect. On a device without UUOB, the app connects with a code.")
-    }
+  Page(groups.firstOrNull()?.name ?: "", "", top, onBack) {
     groups.forEach { g ->
       block(g.id) {
         Card(Modifier.fillMaxWidth().padding(top = 20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = MaterialTheme.shapes.extraLarge) {
@@ -240,7 +233,7 @@ private fun Heading(text: String) =
 /** A one-time code to type into an app, also on a device without UUOB. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppCode(onClose: () -> Unit) {
+fun AppCode(onClose: () -> Unit) {
   var code by remember { mutableStateOf<JSONObject?>(null) }
   LaunchedEffect(Unit) { runCatching { code = Core.obj("create_app_code") } }
   ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {

@@ -56,10 +56,11 @@ private sealed interface PersonSheet {
 private fun can(access: String) = if (access == "write") "Can edit" else "Can view"
 
 @Composable
-fun PeopleScreen(shell: Shell, top: @Composable () -> Unit) {
+fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: () -> Unit) {
   var me by remember { mutableStateOf("") }
   var sheet by remember { mutableStateOf<PersonSheet?>(null) }
-  val people = shell.people
+  val people = shell.people.filter { it.optString("id") == only }
+  LaunchedEffect(people.isEmpty()) { if (people.isEmpty()) onBack() }
   LaunchedEffect(shell.tick) { runCatching { me = Core.obj("status").optJSONObject("network")?.text("name") ?: "" } }
 
   // Linking needs a name for the other person to see.
@@ -72,29 +73,7 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit) {
     shell.refresh()
   }
 
-  Page("People", "Share a list or a calendar with someone who has their own UUOB. They see only what you share with them. Everything else stays private.", top) {
-    if (me.isNotBlank()) block {
-      Section {
-        ListItem(
-          colors = clearItem(),
-          leadingContent = { Avatar(me, mine = true) },
-          headlineContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text(me)
-              Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape, modifier = Modifier.padding(start = 8.dp)) {
-                Text("You", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-              }
-            }
-          },
-          supportingContent = { Text("The name other people see") },
-          trailingContent = { IconButton(onClick = { sheet = PersonSheet.Name(null) }) { Icon(Icons.Rounded.Edit, "Change name") } },
-        )
-      }
-    }
-
-    if (people.isEmpty()) block {
-      Empty(Icons.Rounded.Group, "No people yet", "Link with a partner, a family member or a colleague. Then share a list or a calendar with them from Tasks or Calendar.")
-    }
+  Page(people.firstOrNull()?.optString("name") ?: "", "", top, onBack) {
     people.forEach { p ->
       block(p.optString("id")) {
         val name = p.optString("name")
@@ -160,18 +139,6 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit) {
       }
     }
 
-    block {
-      Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { start(PersonSheet.Add) }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Add, null)
-          Text("  Add a person")
-        }
-        FilledTonalButton(onClick = { start(PersonSheet.Meet) }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Link, null)
-          Text("  Enter a code")
-        }
-      }
-    }
   }
 
   when (val s = sheet) {
@@ -245,7 +212,7 @@ private fun AddPerson(shell: Shell, onClose: () -> Unit) {
         linked != null -> Success("Linked with $linked", "Nothing is shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.", ::close)
         invite != null -> {
           SheetTitle("Add a person", center = true)
-          Caption("They open UUOB on their device, go to People → Enter a code and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
+          Caption("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
           CodeView(invite!!, "Waiting for them…")
           Caption("This links the two of you. It doesn’t share anything, and it doesn’t add them to your devices.", Modifier.padding(top = 16.dp))
           OutlinedButton(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp)) { Text("Cancel") }
@@ -289,7 +256,7 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
   ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Enter a code")
-      Caption("Ask the other person to open People → Add a person in their UUOB (or to share something with someone new), and type the code they see.", Modifier.padding(top = 6.dp))
+      Caption("Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.", Modifier.padding(top = 6.dp))
       Button(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp)) {
         Icon(Icons.Rounded.QrCodeScanner, null)
         Text("  Scan QR code")
@@ -310,5 +277,33 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
       code = text
       meet()
     } else if (why != null) error = why
+  }
+}
+
+/**
+ * Linking with a person, from Access → Add: your name first if you have
+ * none yet (the other person sees it), then show your code or enter theirs.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddPersonFlow(shell: Shell, onClose: () -> Unit) {
+  var me by remember { mutableStateOf<String?>(null) }
+  var sheet by remember { mutableStateOf<PersonSheet?>(null) }
+  LaunchedEffect(Unit) { me = runCatching { Core.obj("status").optJSONObject("network")?.text("name") ?: "" }.getOrDefault("") }
+  val name = me ?: return
+  when (sheet) {
+    PersonSheet.Add -> AddPerson(shell, onClose)
+    PersonSheet.Meet -> Meet(shell, onClose)
+    else -> if (name.isBlank()) NameSheet("", continues = true, onClose = onClose) { new ->
+      shell.act { Core.call("set_name", params("name" to new)); me = new.trim() }
+    } else ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+      SheetBody {
+        SheetTitle("Add a person")
+        Caption("Link with someone who has their own UUOB. Then share a list or a calendar with them from its app. They see only what you share.", Modifier.padding(top = 6.dp))
+        Button(onClick = { sheet = PersonSheet.Add }, Modifier.fillMaxWidth().padding(top = 20.dp).height(56.dp)) { Text("Show my code") }
+        FilledTonalButton(onClick = { sheet = PersonSheet.Meet }, Modifier.fillMaxWidth().padding(top = 10.dp).height(56.dp)) { Text("Enter their code") }
+        OutlinedButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 10.dp).height(52.dp)) { Text("Cancel") }
+      }
+    }
   }
 }

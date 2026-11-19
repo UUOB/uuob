@@ -11,6 +11,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,17 +60,28 @@ import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import java.util.concurrent.Executors
 
-/** A screen: a large title that shrinks as you scroll, a line about it, then its content. */
+/** A screen: a large title that shrinks as you scroll, a line about it, then its content.
+ *  With `onBack`, a back arrow (and the back gesture) leaves it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Page(title: String, lead: String, top: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
+fun Page(title: String, lead: String, top: @Composable () -> Unit, onBack: (() -> Unit)? = null, content: LazyListScope.() -> Unit) {
   val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+  if (onBack != null) androidx.activity.compose.BackHandler(onBack = onBack)
   Scaffold(
     Modifier.nestedScroll(scroll.nestedScrollConnection),
-    topBar = { LargeTopAppBar(title = { Text(title) }, actions = { top() }, scrollBehavior = scroll) },
+    topBar = {
+      LargeTopAppBar(
+        title = { Text(title) }, actions = { top() }, scrollBehavior = scroll,
+        navigationIcon = {
+          if (onBack != null) androidx.compose.material3.IconButton(onClick = onBack) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.ArrowBack, "Back")
+          }
+        },
+      )
+    },
   ) { pad ->
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding(), bottom = pad.calculateBottomPadding() + 88.dp)) {
-      block { Caption(lead, Modifier.padding(horizontal = 4.dp)) }
+      if (lead.isNotEmpty()) block { Caption(lead, Modifier.padding(horizontal = 4.dp)) }
       content()
     }
   }

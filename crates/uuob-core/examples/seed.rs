@@ -160,6 +160,16 @@ async fn main() {
 
     // A token for trying the local API by hand (e.g. the share sheet).
     let token = node.connect_app(&AppManifest { id: "tasks".into(), name: "Tasks".into() }, Some(&node.create_app_code().await.unwrap().code)).await.unwrap();
+    // More apps on this device (the Network graph folds more than 3 into a
+    // bubble), Calendar reading Tasks, and an AI that reads both.
+    for (id, name) in [("calendar", "Calendar"), ("notes", "Notes"), ("journal", "Journal")] {
+        let code = node.create_app_code().await.unwrap().code;
+        node.connect_app(&AppManifest { id: id.into(), name: name.into() }, Some(&code)).await.unwrap();
+    }
+    node.set_grant("app:calendar", "tasks", Some(Access::Read)).unwrap();
+    let (claude, _) = node.create_client("Claude").unwrap();
+    node.set_grant(&format!("ai:{claude}"), "tasks", Some(Access::Write)).unwrap();
+    node.set_grant(&format!("ai:{claude}"), "calendar", Some(Access::Read)).unwrap();
     println!("token {token}\ngroceries {}", place["groceries"]);
     petra.shutdown().await;
     node.shutdown().await;

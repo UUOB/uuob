@@ -27,26 +27,25 @@ import org.json.JSONObject
  * ones; it changes what the existing ones may see, for all devices.
  */
 @Composable
-fun AiScreen(shell: Shell, top: @Composable () -> Unit) {
+fun AiScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: () -> Unit) {
   var clients by remember { mutableStateOf(listOf<Pair<String, JSONObject>>()) }
   var containers by remember { mutableStateOf(listOf<JSONObject>()) }
   var removing by remember { mutableStateOf<Pair<String, JSONObject>?>(null) }
 
   suspend fun load() {
-    clients = Core.obj("clients").entries().filter { (_, c) -> c.text("app") == null }
+    clients = Core.obj("clients").entries().filter { (id, c) -> c.text("app") == null && id == only }
     containers = Core.list("containers")
   }
-  LaunchedEffect(shell.tick) { runCatching { load() } }
+  var loaded by remember { mutableStateOf(false) }
+  LaunchedEffect(shell.tick) { runCatching { load(); loaded = true } }
+  LaunchedEffect(loaded, clients) { if (loaded && clients.isEmpty()) onBack() }
 
   // Access is given per app and covers all of that app's lists, calendars, …
   val apps = containers.distinctBy { it.optString("owner_app") }
   fun appName(k: JSONObject) = containers.firstOrNull { it.optString("id") == k.optString("owner_app") }?.optString("name") ?: k.optString("name")
   fun level(cid: String, k: JSONObject) = k.objects("access").firstOrNull { it.optString("client") == "ai:$cid" }?.optString("access") ?: "none"
 
-  Page("AI access", "Let an AI assistant (Claude, or any app that supports MCP) work with your data. It sees only what you allow, app by app. Nothing by default.", top) {
-    if (clients.isEmpty()) block {
-      Empty(Icons.Rounded.AutoAwesome, "No AI connected", "Connect one, then choose exactly which data it may read or change.")
-    }
+  Page(clients.firstOrNull()?.second?.optString("name") ?: "", "", top, onBack) {
     clients.forEach { (cid, c) ->
       block(cid) {
         Section {
@@ -71,9 +70,6 @@ fun AiScreen(shell: Shell, top: @Composable () -> Unit) {
           }
         }
       }
-    }
-    block {
-      Caption("Connect AIs from UUOB on a computer. You can change what they can access from here, and it applies on all your devices.", Modifier.padding(horizontal = 4.dp, vertical = 16.dp))
     }
   }
 

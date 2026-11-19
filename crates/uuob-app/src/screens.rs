@@ -216,9 +216,9 @@ fn shares(p: &Person) -> String {
 
 /// Which of the 8 app colours an app gets, the same on every platform (each
 /// has its own 8, in this order: blue, red, orange, green, purple, pink,
-/// teal, indigo).
+/// teal, indigo): FNV-1a of its id's UTF-8 bytes.
 pub fn tint(app: &str) -> u32 {
-    app.chars().fold(0u32, |h, c| (h.wrapping_mul(31).wrapping_add(c as u32)) & 0x7fff_ffff) % 8
+    app.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193)) % 8
 }
 
 fn letter(name: &str) -> String {
@@ -267,6 +267,9 @@ pub fn access(input: &Input) -> Json {
     }
     json!(rows)
 }
+
+/// The height of a node's label under it.
+const LABEL: f64 = 16.0;
 
 /// One thing drawn in the graph.
 struct Spot {
@@ -470,7 +473,7 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
         let room = |a: f64| (edge(x, y, a) - item / 2.0 - 6.0).clamp(close, reach);
         // Wide enough apart that neighbours don't touch, even when pulled in.
         let inner = (0..k).map(|j| room(dir + (j as f64 - (k as f64 - 1.0) / 2.0) * 0.55)).fold(reach, f64::min);
-        let step = (2.0 * ((item + 8.0 * s) / (2.0 * inner)).min(1.0).asin()).max(if k <= 5 { 0.55 } else { 2.6 / (k - 1) as f64 });
+        let step = (2.0 * ((item + 8.0 * s + LABEL) / (2.0 * inner)).min(1.0).asin()).max(if k <= 5 { 0.55 } else { 2.6 / (k - 1) as f64 });
         let at = |j: f64| dir + (j - (k as f64 - 1.0) / 2.0) * step;
         for (j, mut it) in items.into_iter().enumerate() {
             let a = at(j as f64);
@@ -552,7 +555,9 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
             for j in i + 1..spots.len() {
                 let (dx, dy) = (spots[j].x - spots[i].x, spots[j].y - spots[i].y);
                 let d = dx.hypot(dy);
-                let need = (spots[i].size + spots[j].size) / 2.0 + 6.0;
+                // One above the other: room for the upper one's label too.
+                let label = if dy.abs() > dx.abs() { LABEL } else { 0.0 };
+                let need = (spots[i].size + spots[j].size) / 2.0 + 6.0 + label;
                 if d >= need {
                     continue;
                 }
@@ -579,6 +584,13 @@ pub fn graph(input: &Input, width: f64, open: &BTreeSet<String>) -> Json {
         }
     }
     let round = |v: f64| (v * 10.0).round() / 10.0;
+    // As tall as what is drawn (a lone device needs no 420 points).
+    let top = spots.iter().map(|sp| sp.y - sp.size / 2.0).fold(f64::MAX, f64::min);
+    let bottom = spots.iter().map(|sp| sp.y + sp.size / 2.0 + if sp.kind == "fold" { 0.0 } else { LABEL + 6.0 }).fold(f64::MIN, f64::max);
+    let (shift, h) = if spots.is_empty() { (0.0, h) } else { (top - 16.0, (bottom - top + 32.0).min(h)) };
+    for sp in &mut spots {
+        sp.y -= shift;
+    }
     let at: BTreeMap<&str, (f64, f64)> = spots.iter().map(|sp| (sp.id.as_str(), (sp.x, sp.y))).collect();
     let lines: Vec<Json> = lines
         .iter()
@@ -735,7 +747,9 @@ mod tests {
                     assert!(ax - ar >= 0.0 && ax + ar <= w && ay - ar >= 0.0 && ay + ar <= h, "{} inside at {width}", a["id"]);
                     for b in &all[i + 1..] {
                         let (bx, by, br) = (b["x"].as_f64().unwrap(), b["y"].as_f64().unwrap(), b["size"].as_f64().unwrap() / 2.0);
-                        let gap = (ax - bx).hypot(ay - by) - ar - br;
+                        // A node right above another leaves room for its label.
+                        let label = if (ay - by).abs() > (ax - bx).abs() { LABEL } else { 0.0 };
+                        let gap = (ax - bx).hypot(ay - by) - ar - br - label;
                         assert!(gap >= 4.0, "{} and {} overlap at width {width} with {groups:?} (gap {gap:.1})", a["id"], b["id"]);
                     }
                 }
@@ -753,10 +767,8 @@ mod tests {
     }
 
     #[test]
-    fn tints_match_the_mac_app() {
-        // Swift: unicodeScalars.reduce(0) { ($0 &* 31 &+ value) & 0x7fffffff } % 8
-        assert_eq!(tint("tasks"), 6);
-        assert_eq!(tint("calendar"), 6);
-        assert_eq!(tint("notes"), 1);
+    fn common_apps_get_different_colours() {
+        // The same numbers as appColor in the Mac, Android and Linux apps.
+        assert_eq!([tint("tasks"), tint("calendar"), tint("notes"), tint("photos")], [5, 7, 2, 0]);
     }
 }

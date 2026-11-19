@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Hub
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -114,15 +113,14 @@ class Shell(private val scope: CoroutineScope) {
 }
 
 private enum class Screen(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-  Devices("Devices", Icons.Rounded.Devices),
-  People("People", Icons.Rounded.Group),
-  Apps("Apps", Icons.Rounded.Widgets),
-  Ai("AI access", Icons.Rounded.AutoAwesome),
+  Network("Network", Icons.Rounded.Hub),
+  Access("Access", Icons.Rounded.Shield),
+  Settings("Settings", Icons.Rounded.Tune),
 }
 
 @Composable
 fun UuobApp(shell: Shell, updater: Updater) {
-  var screen by rememberSaveable { mutableStateOf(Screen.Devices) }
+  var screen by rememberSaveable { mutableStateOf(Screen.Network) }
   LaunchedEffect(Unit) { shell.follow() }
 
   NavigationSuiteScaffold(navigationSuiteItems = {
@@ -134,8 +132,8 @@ fun UuobApp(shell: Shell, updater: Updater) {
         icon = {
           val st = shell.status
           BadgedBox(badge = {
-            if (s == Screen.Devices && (st?.optInt("devices_total") ?: 0) > 1) Badge(containerColor = if ((st?.optInt("devices_online") ?: 0) > 1) Tint.ok else Tint.offline)
-            else if (s == Screen.People && shell.offers.isNotEmpty()) Badge()
+            if (s == Screen.Network && (st?.optInt("devices_total") ?: 0) > 1) Badge(containerColor = if ((st?.optInt("devices_online") ?: 0) > 1) Tint.ok else Tint.offline)
+            else if (s == Screen.Access && shell.asks.size + shell.offers.size > 0) Badge { Text("${shell.asks.size + shell.offers.size}") }
           }) { Icon(s.icon, null) }
         },
       )
@@ -150,10 +148,9 @@ fun UuobApp(shell: Shell, updater: Updater) {
         }
         val top = @Composable { UpdateButton(updater) }
         when (screen) {
-          Screen.Devices -> DevicesScreen(shell, top)
-          Screen.People -> PeopleScreen(shell, top)
-          Screen.Apps -> AppsScreen(shell, top)
-          Screen.Ai -> AiScreen(shell, top)
+          Screen.Network -> NetworkScreen(shell, top)
+          Screen.Access -> AccessTab(shell, top)
+          Screen.Settings -> SettingsScreen(shell, updater, top)
         }
       }
       SnackbarHost(shell.snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
@@ -200,7 +197,7 @@ private fun AskSheet(shell: Shell, ask: JSONObject) {
       } else {
         val what = if (ask.optString("access") == "write") "read and change" else "read"
         SheetTitle("“${ask.optString("app_name")}” wants to $what your ${ask.optString("container_name")} data", center = true)
-        Caption("You can change this any time in Apps.", Modifier.fillMaxWidth().padding(top = 6.dp))
+        Caption("You can change this any time in Access.", Modifier.fillMaxWidth().padding(top = 6.dp))
       }
       Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(onClick = { answer(false) }, Modifier.weight(1f).height(52.dp)) { Text("Don’t allow") }

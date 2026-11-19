@@ -105,7 +105,12 @@ fun Empty(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, 
 fun Dot(on: Boolean) = Box(Modifier.size(8.dp).clip(CircleShape).background(if (on) Tint.ok else Tint.offline))
 
 /** Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular. */
-fun appColor(app: String) = Tint.apps[Math.floorMod(app.hashCode(), Tint.apps.size)]
+/** An app's colour, the same on every platform: FNV-1a of its id (crates/uuob-app/src/screens.rs `tint`). */
+fun appColor(app: String): Color {
+  var h = 0x811c9dc5L
+  for (b in app.toByteArray()) h = ((h xor (b.toLong() and 0xff)) * 0x01000193L) and 0xffffffffL
+  return Tint.apps[(h % Tint.apps.size).toInt()]
+}
 
 @Composable
 fun AppTile(app: String, size: Dp = 44.dp) =

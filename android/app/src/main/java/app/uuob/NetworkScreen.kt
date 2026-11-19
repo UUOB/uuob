@@ -57,35 +57,34 @@ import org.json.JSONObject
 private sealed interface DeviceSheet {
   data object Add : DeviceSheet
   data object Join : DeviceSheet
-  data object Leave : DeviceSheet
   data object Rename : DeviceSheet
   data class Remove(val device: JSONObject) : DeviceSheet
 }
 
 private fun platformName(p: String) = mapOf("linux" to "Linux", "macos" to "macOS", "windows" to "Windows", "android" to "Android", "ios" to "iOS")[p] ?: p
 
+/** The devices, loaded for a tab and reloaded on every change. */
 @Composable
-fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
-  val ctx = LocalContext.current
+private fun rememberDevices(shell: Shell): Pair<List<JSONObject>, suspend () -> Unit> {
   var devices by remember { mutableStateOf(listOf<JSONObject>()) }
-  var copies by remember { mutableIntStateOf(1) }
-  var atBoot by remember { mutableStateOf(BootReceiver.isOn(ctx)) }
-  var sheet by remember { mutableStateOf<DeviceSheet?>(null) }
-
-  suspend fun load() {
-    devices = Core.list("devices")
-    copies = Core.obj("status").optJSONObject("network")?.optInt("copies", 1) ?: 1
-  }
-  fun reload() = shell.act { load() }
+  val load: suspend () -> Unit = { devices = Core.list("devices") }
   LaunchedEffect(shell.tick) { runCatching { load() } }
+  return devices to load
+}
 
+/** Network: the graph of who is where, then your devices. */
+@Composable
+fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
+  val (devices, load) = rememberDevices(shell)
+  var sheet by remember { mutableStateOf<DeviceSheet?>(null) }
+  fun reload() = shell.act { load() }
   val alone = devices.size <= 1
-  val keepers = devices.count { it.optBoolean("keeper") }
   val me = devices.firstOrNull { it.optBoolean("is_self") }
 
-  Page("Devices", "Your devices form one private network. Every app’s data lives on them, synced and end-to-end encrypted. No cloud, no accounts.", top) {
+  Page("Network", "Your devices in the middle, each app on the device it runs on, people at the edge.", top) {
+    block { Graph(shell, devices) }
     block {
-      Section {
+      Section("Devices") {
         devices.forEachIndexed { i, d ->
           if (i > 0) HorizontalDivider(Modifier.padding(start = 76.dp))
           val self = d.optBoolean("is_self")
@@ -102,7 +101,8 @@ fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
             supportingContent = {
               Row(verticalAlignment = Alignment.CenterVertically) {
                 Dot(d.optBoolean("online"))
-                Text("  ${if (self) "This device" else if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}")
+                val keeps = if (d.optBoolean("keeper")) " · keeps everything" else ""
+                Text("  ${if (self) "This device" else if (d.optBoolean("online")) "Online" else "Offline"} · ${platformName(d.optString("platform"))}$keeps")
               }
             },
             trailingContent = {
@@ -113,7 +113,91 @@ fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
         }
       }
     }
+    block {
+      Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Button(onClick = { sheet = DeviceSheet.Add }, Modifier.fillMaxWidth().height(56.dp)) {
+          Icon(Icons.Rounded.Add, null)
+          Text("  Add a device")
+        }
+        if (alone) FilledTonalButton(onClick = { sheet = DeviceSheet.Join }, Modifier.fillMaxWidth().height(56.dp)) {
+          Icon(Icons.Rounded.Link, null)
+          Text("  Join a network")
+        }
+      }
+    }
+  }
 
+  when (val s = sheet) {
+    DeviceSheet.Add -> AddDevice(onClose = { sheet = null; reload() })
+    DeviceSheet.Join -> JoinNetwork(shell, onClose = { sheet = null; reload() })
+    DeviceSheet.Rename -> Rename(me?.optString("name") ?: "", onClose = { sheet = null }) { name ->
+      shell.act { Core.call("set_device_name", params("name" to name)); sheet = null; load(); shell.tick++ }
+    }
+    is DeviceSheet.Remove -> Confirm("Remove “${s.device.optString("name")}”?",
+      "It stops receiving updates right away. Data it already has stays on it. To use it again, add it back with a new code.", "Remove",
+      onConfirm = {
+        sheet = null
+        shell.act { Core.call("remove_device", params("id" to s.device.optString("id"))); shell.toast("${s.device.optString("name")} was removed"); load(); shell.tick++ }
+      },
+      onDismiss = { sheet = null })
+    else -> {}
+  }
+}
+
+/** Settings: your name, this phone, storage, updates, leaving the network. */
+@Composable
+fun SettingsScreen(shell: Shell, updater: Updater, top: @Composable () -> Unit) {
+  val ctx = LocalContext.current
+  val (devices, loadDevices) = rememberDevices(shell)
+  var copies by remember { mutableIntStateOf(1) }
+  var me by remember { mutableStateOf("") }
+  var version by remember { mutableStateOf("") }
+  var atBoot by remember { mutableStateOf(BootReceiver.isOn(ctx)) }
+  var leaving by remember { mutableStateOf(false) }
+  var naming by remember { mutableStateOf(false) }
+  suspend fun load() {
+    loadDevices()
+    val network = Core.obj("status").optJSONObject("network")
+    copies = network?.optInt("copies", 1) ?: 1
+    me = network?.text("name") ?: ""
+    version = Core.call("version") as? String ?: ""
+  }
+  LaunchedEffect(shell.tick) { runCatching { load() } }
+  val alone = devices.size <= 1
+  val keepers = devices.count { it.optBoolean("keeper") }
+
+  Page("Settings", "This phone, your storage and updates.", top) {
+    block {
+      Section("You") {
+        ListItem(
+          colors = clearItem(),
+          leadingContent = { Avatar(me.ifBlank { "?" }, mine = true) },
+          headlineContent = { Text(me.ifBlank { "No name yet" }) },
+          supportingContent = { Text("The name people you link with see") },
+          trailingContent = { IconButton(onClick = { naming = true }) { Icon(Icons.Rounded.Edit, "Change name") } },
+        )
+      }
+    }
+    block {
+      Section("This phone") {
+        ListItem(
+          colors = clearItem(),
+          headlineContent = { Text("Start when the phone turns on") },
+          supportingContent = { Text("UUOB starts in the background once you unlock the phone, so your apps and devices stay in sync.") },
+          trailingContent = { Switch(atBoot, onCheckedChange = { BootReceiver.set(ctx, it); atBoot = BootReceiver.isOn(ctx) }) },
+        )
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+        ListItem(
+          colors = clearItem(),
+          headlineContent = { Text("Apps can connect") },
+          supportingContent = { Text(shell.serverError ?: "Only apps on this phone that you allow in Access.") },
+          trailingContent = {
+            val ok = shell.serverError == null
+            Text(if (ok) "Running" else "Stopped", color = if (ok) Tint.ok else MaterialTheme.colorScheme.error)
+          },
+        )
+      }
+    }
     if (!alone) block {
       val note = if (keepers > 0) {
         val who = if (copies == 1) "a storage device has" else "$copies storage devices have"
@@ -127,7 +211,7 @@ fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
             headlineContent = { Text(d.optString("name")) },
             supportingContent = { Text(if (keeper) "Keeps everything" else "Keeps what its apps ask for") },
             trailingContent = {
-              Switch(keeper, onCheckedChange = { on -> shell.act { Core.call("set_keeper", params("device" to d.optString("id"), "on" to on)); load() } })
+              Switch(keeper, onCheckedChange = { on -> shell.act { Core.call("set_keeper", params("device" to d.optString("id"), "on" to on)); load(); shell.tick++ } })
             },
           )
         }
@@ -141,50 +225,34 @@ fun DevicesScreen(shell: Shell, top: @Composable () -> Unit) {
         )
       }
     }
-
     block {
-      Section("This phone") {
+      Section("Updates") {
         ListItem(
           colors = clearItem(),
-          headlineContent = { Text("Start when the phone turns on") },
-          supportingContent = { Text("UUOB starts in the background once you unlock the phone, so your apps and devices stay in sync.") },
-          trailingContent = { Switch(atBoot, onCheckedChange = { BootReceiver.set(ctx, it); atBoot = BootReceiver.isOn(ctx) }) },
+          headlineContent = { Text("UUOB $version") },
+          supportingContent = { Text(updater.version?.let { "Version $it is ready" } ?: "Up to date") },
+          trailingContent = { UpdateButton(updater) },
         )
       }
     }
-
-    block {
-      Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { sheet = DeviceSheet.Add }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Add, null)
-          Text("  Add a device")
-        }
-        if (alone) FilledTonalButton(onClick = { sheet = DeviceSheet.Join }, Modifier.fillMaxWidth().height(56.dp)) {
-          Icon(Icons.Rounded.Link, null)
-          Text("  Join a network")
-        } else TextButton(onClick = { sheet = DeviceSheet.Leave }, Modifier.align(Alignment.CenterHorizontally)) { Text("Leave this network") }
+    if (!alone) block {
+      Section("Network") {
+        ListItem(
+          colors = clearItem(),
+          headlineContent = { Text("Leave this network") },
+          supportingContent = { Text("This phone stops syncing with your other devices.") },
+          trailingContent = { TextButton(onClick = { leaving = true }) { Text("Leave", color = MaterialTheme.colorScheme.error) } },
+        )
       }
     }
   }
 
-  when (val s = sheet) {
-    DeviceSheet.Add -> AddDevice(onClose = { sheet = null; reload() })
-    DeviceSheet.Join -> JoinNetwork(shell, onClose = { sheet = null; reload() })
-    DeviceSheet.Rename -> Rename(me?.optString("name") ?: "", onClose = { sheet = null }) { name ->
-      shell.act { Core.call("set_device_name", params("name" to name)); sheet = null; load() }
-    }
-    DeviceSheet.Leave -> Confirm("Leave this network?", "This device stops syncing with your other devices. Everything already on it stays here.", "Leave",
-      onConfirm = { sheet = null; shell.act { Core.call("leave_network"); shell.toast("This device now has its own network"); load() } },
-      onDismiss = { sheet = null })
-    is DeviceSheet.Remove -> Confirm("Remove “${s.device.optString("name")}”?",
-      "It stops receiving updates right away. Data it already has stays on it. To use it again, add it back with a new code.", "Remove",
-      onConfirm = {
-        sheet = null
-        shell.act { Core.call("remove_device", params("id" to s.device.optString("id"))); shell.toast("${s.device.optString("name")} was removed"); load() }
-      },
-      onDismiss = { sheet = null })
-    null -> {}
+  if (naming) NameSheet(me, continues = false, onClose = { naming = false }) { name ->
+    shell.act { Core.call("set_name", params("name" to name)); me = name.trim(); naming = false }
   }
+  if (leaving) Confirm("Leave this network?", "This device stops syncing with your other devices. Everything already on it stays here.", "Leave",
+    onConfirm = { leaving = false; shell.act { Core.call("leave_network"); shell.toast("This device now has its own network"); load(); shell.tick++ } },
+    onDismiss = { leaving = false })
 }
 
 @Composable
@@ -282,7 +350,7 @@ private fun JoinNetwork(shell: Shell, onClose: () -> Unit) {
   ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Join a network")
-      Caption("On a device that’s already set up, open Devices → Add a device and type the code it shows.", Modifier.padding(top = 6.dp))
+      Caption("On a device that’s already set up, open Network → Add a device and type the code it shows.", Modifier.padding(top = 6.dp))
       Button(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp).height(56.dp)) {
         Icon(Icons.Rounded.QrCodeScanner, null)
         Text("  Scan QR code")
