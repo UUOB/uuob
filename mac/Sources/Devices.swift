@@ -19,82 +19,69 @@ struct NetworkView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                GraphView()
-            } header: {
-                Lead("Your devices in the middle, each app on the device it runs on, people at the edge.")
-            }
-            Section("Devices") {
+        Page(title: "Network", lead: "Your devices in the middle, each app on the device it runs on, people at the edge.") {
+            GraphView().padding(.top, 14)
+            Card("Devices") {
                 ForEach(devices) { d in
-                    HStack(spacing: 12) {
-                        Image(systemName: d.platform.string == "android" || d.platform.string == "ios" ? "iphone" : "laptopcomputer")
-                            .font(.title2).foregroundStyle(.secondary).frame(width: 36)
+                    HStack(spacing: 14) {
+                        Ico(d.platform.string == "android" || d.platform.string == "ios" ? "phone" : "laptop", size: 24)
+                            .foregroundStyle(Look.text2)
+                            .frame(width: 44, height: 44)
+                            .background(Look.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
-                                Text(d.name.string).font(.headline)
-                                if d.is_self.bool {
-                                    Text("This device").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
-                                        .padding(.horizontal, 7).padding(.vertical, 2)
-                                        .background(Color.accentColor.opacity(0.14), in: Capsule())
-                                }
+                                Text(d.name.string).font(.system(size: 16, weight: .semibold))
+                                if d.is_self.bool { Tag("This device") }
                             }
                             HStack(spacing: 6) {
                                 Dot(on: d.online.bool)
-                                Text("\(d.online.bool ? "Online" : "Offline") · \(platformName(d.platform.string))\(d.keeper.bool ? " · keeps everything" : "")").foregroundStyle(.secondary)
+                                Text("\(d.online.bool ? "Online" : "Offline") · \(platformName(d.platform.string))\(d.keeper.bool ? " · keeps everything" : "")")
+                                    .font(.system(size: 13)).foregroundStyle(Look.text2)
                             }
                         }
                         Spacer()
                         if d.is_self.bool {
-                            Button("Rename…") { name = d.name.string; renaming = true }
+                            Button { name = d.name.string; renaming = true } label: { Ico("edit", size: 18) }
+                                .buttonStyle(IconButtonStyle()).help("Rename")
                         } else {
-                            Button(role: .destructive) { removing = d } label: { Image(systemName: "trash") }
-                                .buttonStyle(.borderless).help("Remove from network")
+                            Button(role: .destructive) { removing = d } label: { Ico("trash", size: 18) }
+                                .buttonStyle(IconButtonStyle()).help("Remove from network")
                         }
                     }
-                    .padding(.vertical, 4)
-                }
-                HStack {
-                    Button("Add a Device…") { adding = true }.buttonStyle(.borderedProminent)
-                    if devices.count <= 1 { Button("Join a Network…") { joining = true } }
                 }
             }
-        }
-        .formStyle(.grouped)
-        .navigationTitle("Network")
-        .toolbar {
-            ToolbarItem {
-                Button { adding = true } label: { Label("Add a Device", systemImage: "plus") }.help("Add a device")
+            HStack(spacing: 12) {
+                Button { adding = true } label: { HStack(spacing: 8) { Ico("plus", size: 20, stroke: 2.2); Text("Add a device") } }
+                    .buttonStyle(UuobButton(.primary, large: true))
+                if devices.count <= 1 {
+                    Button { joining = true } label: { HStack(spacing: 8) { Ico("link", size: 20); Text("Join a network") } }
+                        .buttonStyle(UuobButton(large: true))
+                }
             }
+            .padding(.top, 24)
         }
         .task(id: shell.tick) { await load() }
         .sheet(isPresented: $adding, onDismiss: { Task { await load() } }) { AddDeviceSheet() }
         .sheet(isPresented: $joining, onDismiss: { Task { await load() } }) { JoinSheet() }
-        .alert("This device’s name", isPresented: $renaming) {
-            TextField("Name", text: $name)
-            Button("Save") {
+        .sheet(isPresented: $renaming) {
+            TextSheet(title: "This device’s name", text: name) { new in
                 shell.act {
-                    try await Core.call("set_device_name", ["name": name])
+                    try await Core.call("set_device_name", ["name": new])
                     await load()
                     shell.tick += 1
                 }
             }
-            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel", role: .cancel) {}
         }
-        .alert("Remove “\(removing?.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-            Button("Remove", role: .destructive) {
-                guard let d = removing else { return }
-                shell.act {
-                    try await Core.call("remove_device", ["id": d.id])
-                    shell.show("\(d.name.string) was removed")
-                    await load()
-                    shell.tick += 1
-                }
+        .confirm("Remove “\(removing?.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                 message: "It stops receiving updates right away. Data it already has stays on it. To use it again, add it back with a new code.",
+                 action: "Remove") {
+            guard let d = removing else { return }
+            shell.act {
+                try await Core.call("remove_device", ["id": d.id])
+                shell.show("\(d.name.string) was removed")
+                await load()
+                shell.tick += 1
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("It stops receiving updates right away. Data it already has stays on it. To use it again, add it back with a new code.")
         }
     }
 }
@@ -126,17 +113,17 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section("You") {
+        Page(title: "Settings", lead: "This Mac, your storage and updates.") {
+            Card("You") {
                 HStack(spacing: 12) {
                     Avatar(name: me.isEmpty ? "?" : me, mine: true)
                     TwoLines(title: me.isEmpty ? "No name yet" : me, detail: "The name people you link with see")
                     Spacer()
-                    Button("Change…") { naming = true }
+                    Button { naming = true } label: { Ico("edit", size: 18) }.buttonStyle(IconButtonStyle()).help("Change name")
                 }
             }
 
-            Section("This Mac") {
+            Card("This Mac") {
                 Toggle(isOn: Binding(get: { atLogin }, set: { on in
                     shell.act {
                         try await Core.call("set_autostart", ["on": on])
@@ -145,15 +132,15 @@ struct SettingsView: View {
                 })) {
                     TwoLines(title: "Start at login", detail: "UUOB starts in the menu bar when you log in, so your apps and devices stay in sync.")
                 }
-                LabeledContent {
-                    Text(shell.serverError == nil ? "Running" : "Stopped").foregroundStyle(shell.serverError == nil ? .green : .red)
+                Trailing {
+                    Text(shell.serverError == nil ? "Running" : "Stopped").font(.system(size: 15, weight: .semibold)).foregroundStyle(shell.serverError == nil ? Look.ok : Look.danger)
                 } label: {
                     TwoLines(title: "Apps can connect", detail: shell.serverError ?? "Only from this Mac, and only the ones you allow in Access. AI server: \(url)")
                 }
             }
 
             if !alone {
-                Section {
+                Card {
                     ForEach(devices) { d in
                         Toggle(isOn: Binding(get: { d.keeper.bool }, set: { on in
                             shell.act {
@@ -166,34 +153,31 @@ struct SettingsView: View {
                         }
                     }
                     if keepers > 0 {
-                        Picker(selection: Binding(get: { copies }, set: { n in
-                            shell.act {
-                                try await Core.call("set_copies", ["copies": n])
-                                await load()
+                        Trailing {
+                            Segmented([("1", "1"), ("2", "2")], selected: String(copies)) { n in
+                                shell.act {
+                                    try await Core.call("set_copies", ["copies": Int(n) ?? 1])
+                                    await load()
+                                }
                             }
-                        })) {
-                            Text("1").tag(1)
-                            Text("2").tag(2)
                         } label: {
                             TwoLines(title: "Copies", detail: "Storage devices that must have something before another device frees its own copy.")
                         }
-                        .pickerStyle(.segmented)
                     }
                 } header: {
-                    Text("Storage devices")
+                    SectionLabel("Storage devices")
                 } footer: {
                     Text(keepers > 0
                         ? "Apps with large data, like photos, can keep less on your other devices. Nothing is removed from a device until \(copies == 1 ? "a storage device has" : "\(copies) storage devices have") it."
                         : "Turn this on for a device with plenty of space that is usually on. Apps with large data, like photos, can then keep less on your other devices.")
-                    .foregroundStyle(.secondary)
                 }
             }
 
-            Section("Updates") {
-                LabeledContent {
+            Card("Updates") {
+                Trailing {
                     if let v = shell.update {
                         Button(shell.updating ? "Updating…" : "Update to \(v)") { shell.installUpdate() }
-                            .buttonStyle(.borderedProminent).disabled(shell.updating)
+                            .buttonStyle(UuobButton(.primary)).disabled(shell.updating)
                     }
                 } label: {
                     TwoLines(title: "UUOB \(version)", detail: shell.updateError ?? (shell.update.map { "Version \($0) is ready" } ?? "Up to date"))
@@ -201,17 +185,15 @@ struct SettingsView: View {
             }
 
             if !alone {
-                Section("Network") {
-                    LabeledContent {
-                        Button("Leave…", role: .destructive) { leaving = true }
+                Card("Network") {
+                    Trailing {
+                        Button("Leave…", role: .destructive) { leaving = true }.buttonStyle(UuobButton(.danger))
                     } label: {
                         TwoLines(title: "Leave this network", detail: "This Mac stops syncing with your other devices.")
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle("Settings")
         .task(id: shell.tick) { await load() }
         .sheet(isPresented: $naming) {
             NameSheet(current: me, continues: false) { name in
@@ -220,18 +202,14 @@ struct SettingsView: View {
                 naming = false
             }
         }
-        .alert("Leave this network?", isPresented: $leaving) {
-            Button("Leave", role: .destructive) {
-                shell.act {
-                    try await Core.call("leave_network")
-                    shell.show("This device now has its own network")
-                    await load()
-                    shell.tick += 1
-                }
+        .confirm("Leave this network?", isPresented: $leaving,
+                 message: "This device stops syncing with your other devices. Everything already on it stays here.", action: "Leave") {
+            shell.act {
+                try await Core.call("leave_network")
+                shell.show("This device now has its own network")
+                await load()
+                shell.tick += 1
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This device stops syncing with your other devices. Everything already on it stays here.")
         }
     }
 }
@@ -286,13 +264,14 @@ struct Success: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green).symbolEffect(.bounce, value: title)
-            Text(title).font(.title2.weight(.semibold))
-            Text(text).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Button("Done", action: done).buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).padding(.top, 8)
+            Ico("check", size: 40, stroke: 2.5).foregroundStyle(.white).frame(width: 76, height: 76).background(Look.ok, in: Circle())
+            Text(title).font(.system(size: 22, weight: .semibold))
+            Text(text).font(.system(size: 17)).foregroundStyle(Look.text2).multilineTextAlignment(.center)
+            Button("Done", action: done).buttonStyle(UuobButton(.primary, large: true)).environment(\.fillButtons, true).keyboardShortcut(.defaultAction).padding(.top, 8)
         }
-        .padding(32)
-        .frame(width: 420)
+        .padding(28)
+        .frame(width: 460)
+        .background(Look.elevated)
     }
 }
 
@@ -307,7 +286,7 @@ struct JoinSheet: View {
     var body: some View {
         SheetFrame(title: "Join a network", lead: "On a device that’s already set up, open Network → Add a device and type the code it shows.") {
             TextField("e.g. 42 amber river falcon", text: $code)
-                .textFieldStyle(.roundedBorder).font(.title3).autocorrectionDisabled()
+                .textFieldStyle(UuobField()).font(.title3).autocorrectionDisabled()
                 .onSubmit(join)
             if let error { Text(error).foregroundStyle(.red) }
             Text("Anything already on this device is kept and merged into the network.").font(.callout).foregroundStyle(.secondary)

@@ -35,54 +35,53 @@ struct AccessView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Form {
-                Section {
-                    Picker("Show", selection: $show) {
-                        Text("All").tag("all")
-                        Text("Apps").tag("app")
-                        Text("People").tag("person")
-                        Text("AI").tag("ai")
+            Page(title: "Access", lead: "Everything that can reach your data, and what each one can read or write.") {
+                Menu {
+                    Button("An App…") { adding = .app }
+                    Menu("A Person") {
+                        Button("Show My Code…") { person(.showCode) }
+                        Button("Enter Their Code…") { person(.enterCode) }
                     }
-                    .pickerStyle(.segmented).labelsHidden()
-                } header: {
-                    Lead("Everything that can reach your data, and what each one can read or write.")
+                    Button("An AI…") { adding = .ai }
+                } label: {
+                    HStack(spacing: 8) { Ico("plus", size: 18, stroke: 2.2); Text("Add").font(.system(size: 15, weight: .semibold)) }
+                        .foregroundStyle(.white).padding(.horizontal, 18).frame(minHeight: 40).background(Look.accent, in: Capsule())
                 }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                .help("Add an app, a person or an AI")
+            } content: {
+                Segmented([("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], selected: show, stretch: true) { show = $0 }
+                    .padding(.top, 14)
                 if rows.isEmpty {
-                    Section {
-                        ContentUnavailableView("Nothing has access yet", systemImage: "checkmark.shield",
-                                               description: Text("Install an app that works with UUOB on this Mac and open it: it asks to connect. You can also link with a person or connect an AI with +."))
+                    VStack(spacing: 8) {
+                        Ico("shield", size: 44, stroke: 1.5).foregroundStyle(Look.text3)
+                        Text("Nothing has access yet").font(.system(size: 17, weight: .semibold))
+                        Text("Install an app that works with UUOB on this Mac and open it: it asks to connect. You can also link with a person or connect an AI with Add.")
+                            .font(.system(size: 15)).foregroundStyle(Look.text2).multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity).padding(.vertical, 64).padding(.horizontal, 24)
                 } else {
-                    Section {
+                    Card {
                         ForEach(shown, id: \.key.string) { r in
-                            NavigationLink(value: r.key.string) { AccessRow(row: r) }
+                            NavigationLink(value: r.key.string) {
+                                HStack {
+                                    AccessRow(row: r)
+                                    Spacer()
+                                    Ico("chevron", size: 18).foregroundStyle(Look.text3)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
-            .formStyle(.grouped)
-            .navigationTitle("Access")
             .navigationDestination(for: String.self) { key in
                 let id = String(key.drop { $0 != ":" }.dropFirst())
                 Group {
                     if key.hasPrefix("app:") { AppsView(only: id) }
                     else if key.hasPrefix("person:") { PeopleView(only: id) }
                     else { AiView(only: id) }
-                }
-            }
-            .toolbar {
-                ToolbarItem {
-                    Menu {
-                        Button("An App…") { adding = .app }
-                        Menu("A Person") {
-                            Button("Show My Code…") { person(.showCode) }
-                            Button("Enter Their Code…") { person(.enterCode) }
-                        }
-                        Button("An AI…") { adding = .ai }
-                    } label: {
-                        Label("Add", systemImage: "plus")
-                    }
-                    .help("Add an app, a person or an AI")
                 }
             }
         }
@@ -117,19 +116,19 @@ private struct AccessRow: View {
             case "app": AppTile(app: row.id, size: 36)
             case "person": Avatar(name: row.name.string, size: 36)
             default:
-                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.purple.gradient)
-                    .frame(width: 36, height: 36).overlay(Image(systemName: "sparkles").foregroundStyle(.white))
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.purple)
+                    .frame(width: 36, height: 36).overlay(Ico("ai", size: 20).foregroundStyle(.white))
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(row.name.string).font(.headline)
-                    Text(badge).font(.caption2.weight(.bold)).padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    Text(row.name.string).font(.system(size: 16, weight: .semibold))
+                    Text(badge).font(.system(size: 11, weight: .bold)).foregroundStyle(tint).padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     if row.kind.string != "person", !row["where"].string.isEmpty {
-                        Text(row["where"].string).font(.callout).foregroundStyle(.secondary)
+                        Text(row["where"].string).font(.system(size: 13)).foregroundStyle(Look.text3)
                     }
                 }
-                Text(row.summary.string).foregroundStyle(.secondary)
+                Text(row.summary.string).font(.system(size: 13)).foregroundStyle(Look.text2)
             }
         }
         .padding(.vertical, 2)

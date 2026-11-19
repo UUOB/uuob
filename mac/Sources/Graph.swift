@@ -31,7 +31,7 @@ struct GraphView: View {
                             path.addLine(to: CGPoint(x: l.x2.double, y: l.y2.double))
                             let style = l.style.string
                             let dash: [CGFloat] = style == "person" || style == "link" ? [5, 5] : []
-                            ctx.stroke(path, with: .color(.secondary.opacity(style == "device" ? 0.55 : 0.3)),
+                            ctx.stroke(path, with: .color(style == "device" ? Look.lineStrong : Look.lineStrong.opacity(0.6)),
                                        style: StrokeStyle(lineWidth: style == "device" ? 2.5 : 1.5, dash: dash))
                         }
                     }
@@ -51,19 +51,21 @@ struct GraphView: View {
                 .onChange(of: geo.size.width) { _, w in if abs(w - width) > 20 { width = w } }
             }
             .frame(height: graph.height.double)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Look.low, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Look.line))
 
             if let about = shown?.about {
                 VStack(alignment: .leading, spacing: 4) {
                     if !about.kind.string.isEmpty {
-                        Text(about.kind.string.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
+                        Text(about.kind.string.uppercased()).font(.system(size: 12, weight: .bold)).foregroundStyle(Look.accent)
                     }
-                    Text(about.title.string).font(.title3.weight(.semibold))
-                    if !about.detail.string.isEmpty { Text(about.detail.string).foregroundStyle(.secondary) }
+                    Text(about.title.string).font(.system(size: 20, weight: .semibold))
+                    if !about.detail.string.isEmpty { Text(about.detail.string).font(.system(size: 15)).foregroundStyle(Look.text2) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 18).padding(.vertical, 16)
+                .background(Look.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Look.line))
             }
         }
         .task(id: "\(shell.tick)|\(Int(width))|\(open.sorted())") { await load() }
@@ -102,44 +104,43 @@ private struct GraphNode: View {
             switch kind {
             case "device":
                 RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                    .fill(node.dotted.bool ? AnyShapeStyle(.clear) : AnyShapeStyle(.quaternary))
+                    .fill(node.dotted.bool ? AnyShapeStyle(Color.clear) : AnyShapeStyle(Look.surface2))
                     .overlay {
                         if node.dotted.bool {
                             RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                         }
                     }
-                    .overlay(Image(systemName: deviceIcon).font(.system(size: size * 0.4)))
+                    .overlay(Ico(deviceIcon, size: size * 0.45).foregroundStyle(Look.text))
             case "app":
                 AppTile(app: node.key.string.replacingOccurrences(of: "app:", with: ""), size: size)
             case "ai":
-                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).fill(Color.purple.gradient)
-                    .overlay(Image(systemName: "sparkles").font(.system(size: size * 0.45)).foregroundStyle(.white))
+                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).fill(Color.purple)
+                    .overlay(Ico("ai", size: size * 0.5).foregroundStyle(.white))
             case "person":
                 Avatar(name: node.label.string, size: size)
             case "bubble":
-                Circle().fill(.background).overlay(Circle().strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+                Circle().fill(Look.surface).overlay(Circle().strokeBorder(Look.lineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
                     .overlay(Text("\(node.count.int)").font(.system(size: size * 0.3, weight: .bold, design: .rounded)))
             default:
-                Circle().fill(.quaternary).overlay(Image(systemName: "xmark").font(.system(size: size * 0.4, weight: .semibold)))
+                Circle().fill(Look.surface2).overlay(Ico("close", size: size * 0.5).foregroundStyle(Look.text2))
             }
         }
         .frame(width: size, height: size)
         .overlay {
             if ring {
                 RoundedRectangle(cornerRadius: kind == "person" ? size : size * 0.32, style: .continuous)
-                    .strokeBorder(Color.accentColor, lineWidth: 3).padding(-5)
+                    .strokeBorder(Look.accent, lineWidth: 3).padding(-5)
             }
         }
         .contentShape(Rectangle())
     }
 
     private var deviceIcon: String {
-        if node.id == "unseen" { return "questionmark" }
-        if node.keeper.bool { return "server.rack" }
+        if node.id == "unseen" { return "question" }
+        if node.keeper.bool { return "server" }
         switch node.platform.string {
-        case "android", "ios": return "iphone"
-        case "": return "desktopcomputer"
-        default: return "laptopcomputer"
+        case "android", "ios": return "phone"
+        default: return "laptop"
         }
     }
 }

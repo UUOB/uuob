@@ -27,50 +27,43 @@ struct AiView: View {
     private func level(_ cid: String, _ k: J) -> String { k.access.array.first { $0.client.string == "ai:\(cid)" }?.access.string ?? "none" }
 
     var body: some View {
-        Form {
+        Page(title: clients.first?.value.name.string ?? "", back: { dismiss() }) {
             ForEach(clients, id: \.key) { client in
-                Section {
+                Card {
                     HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous).fill(LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 36, height: 36).overlay(Image(systemName: "sparkles").foregroundStyle(.white))
+                        RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.purple)
+                            .frame(width: 40, height: 40).overlay(Ico("ai", size: 20).foregroundStyle(.white))
                         TwoLines(title: client.value.name.string, detail: "Connected \(client.value.created_at.date.formatted(date: .abbreviated, time: .omitted))")
                         Spacer()
-                        Button(role: .destructive) { removing = client } label: { Image(systemName: "trash") }.buttonStyle(.borderless).help("Disconnect")
+                        Button(role: .destructive) { removing = client } label: { Ico("trash", size: 18) }.buttonStyle(IconButtonStyle()).help("Disconnect")
                     }
                     ForEach(apps) { k in
-                        Picker(appName(k), selection: Binding(get: { level(client.key, k) }, set: { v in
-                            shell.act {
-                                try await Core.call("set_grant", ["client": "ai:\(client.key)", "app": k.owner_app.string, "access": v == "none" ? nil : v])
-                                await load()
+                        Trailing {
+                            Segmented([("none", "No access"), ("read", "Read"), ("write", "Read & write")], selected: level(client.key, k)) { v in
+                                shell.act {
+                                    try await Core.call("set_grant", ["client": "ai:\(client.key)", "app": k.owner_app.string, "access": v == "none" ? nil : v])
+                                    await load()
+                                }
                             }
-                        })) {
-                            Text("No access").tag("none")
-                            Text("Read").tag("read")
-                            Text("Read & write").tag("write")
+                        } label: {
+                            Text(appName(k)).font(.system(size: 16, weight: .semibold))
                         }
-                        .pickerStyle(.segmented)
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle(clients.first?.value.name.string ?? "")
         .task(id: shell.tick) {
             await load()
             if clients.isEmpty { dismiss() }
         }
         .sheet(isPresented: $connecting, onDismiss: { Task { await load() } }) { ConnectAiSheet(url: url) }
-        .alert("Disconnect “\(removing?.value.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-            Button("Disconnect", role: .destructive) {
-                guard let c = removing else { return }
-                shell.act {
-                    try await Core.call("delete_client", ["id": c.key])
-                    await load()
-                }
+        .confirm("Disconnect “\(removing?.value.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                 message: "Its key stops working immediately on all your devices.", action: "Disconnect") {
+            guard let c = removing else { return }
+            shell.act {
+                try await Core.call("delete_client", ["id": c.key])
+                await load()
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Its key stops working immediately on all your devices.")
         }
     }
 }
@@ -108,7 +101,7 @@ struct ConnectAiSheet: View {
             .frame(width: 620)
         } else {
             SheetFrame(title: "Connect an AI", lead: "Give it a name you’ll recognize. It starts with no access.") {
-                TextField("e.g. Claude on my laptop", text: $name).textFieldStyle(.roundedBorder).onSubmit(create)
+                TextField("e.g. Claude on my laptop", text: $name).textFieldStyle(UuobField()).onSubmit(create)
                 if let error { Text(error).foregroundStyle(.red) }
             } buttons: {
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
@@ -139,7 +132,7 @@ private struct Snippet: View {
             HStack {
                 Text(label).font(.headline)
                 Spacer()
-                Button(action: copy) { Label("Copy", systemImage: "doc.on.doc") }.controlSize(.small)
+                Button(action: copy) { HStack(spacing: 6) { Ico("copy", size: 16); Text("Copy") } }.buttonStyle(UuobButton())
             }
             Text(text).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)

@@ -13,7 +13,7 @@ struct AskSheet: View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
                 AppTile(app: ask.app.string, size: 58)
-                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                Ico("right", size: 22).foregroundStyle(Look.text3)
                 if connect {
                     Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
                 } else {
@@ -22,23 +22,26 @@ struct AskSheet: View {
             }
             Group {
                 if connect {
-                    Text("“\(ask.name.string)” wants to use your network").font(.title2.weight(.semibold))
-                    Text("It gets its own place for its data, synced to all your devices. It can’t see anything else unless you allow it.").foregroundStyle(.secondary)
+                    Text("“\(ask.name.string)” wants to use your network").font(.system(size: 22, weight: .semibold))
+                    Text("It gets its own place for its data, synced to all your devices. It can’t see anything else unless you allow it.").font(.system(size: 17)).foregroundStyle(Look.text2)
                 } else {
-                    Text("“\(ask.app_name.string)” wants to \(ask.access.string == "write" ? "read and change" : "read") your \(ask.container_name.string) data").font(.title2.weight(.semibold))
-                    Text("You can change this any time in Access.").foregroundStyle(.secondary)
+                    Text("“\(ask.app_name.string)” wants to \(ask.access.string == "write" ? "read and change" : "read") your \(ask.container_name.string) data").font(.system(size: 22, weight: .semibold))
+                    Text("You can change this any time in Access.").font(.system(size: 17)).foregroundStyle(Look.text2)
                 }
             }
             .multilineTextAlignment(.center)
             HStack(spacing: 10) {
-                Button { answer(false) } label: { Text("Don’t Allow").frame(maxWidth: .infinity) }.keyboardShortcut(.cancelAction)
-                Button { answer(true) } label: { Text("Allow").frame(maxWidth: .infinity) }.keyboardShortcut(.defaultAction)
+                Button("Don’t Allow") { answer(false) }.keyboardShortcut(.cancelAction)
+                Button("Allow") { answer(true) }.buttonStyle(UuobButton(.primary, large: true)).keyboardShortcut(.defaultAction)
             }
-            .controlSize(.large)
+            .environment(\.fillButtons, true)
             .padding(.top, 8)
         }
         .padding(28)
-        .frame(width: 440)
+        .frame(width: 460)
+        .background(Look.elevated)
+        .foregroundStyle(Look.text)
+        .buttonStyle(UuobButton(large: true))
         .interactiveDismissDisabled()
     }
 
@@ -62,22 +65,25 @@ struct OfferSheet: View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
                 Avatar(name: person.name.string, size: 58)
-                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                Ico("right", size: 22).foregroundStyle(Look.text3)
                 AppTile(app: offer.app.string, size: 58)
             }
-            Text("\(person.name.string) shared “\(offer.name.string)” with you").font(.title2.weight(.semibold)).multilineTextAlignment(.center)
+            Text("\(person.name.string) shared “\(offer.name.string)” with you").font(.system(size: 22, weight: .semibold)).multilineTextAlignment(.center)
             Text("It will appear in \(offer.app_name.string) on all your devices. \(offer.access.string == "write" ? "You can both change it." : "You can view it, but not change it.")")
-                .foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .font(.system(size: 17)).foregroundStyle(Look.text2).multilineTextAlignment(.center)
             HStack(spacing: 10) {
-                Button { answer(false) } label: { Text("Decline").frame(maxWidth: .infinity) }
-                Button { answer(true) } label: { Text("Accept").frame(maxWidth: .infinity) }.keyboardShortcut(.defaultAction)
+                Button("Decline") { answer(false) }
+                Button("Accept") { answer(true) }.buttonStyle(UuobButton(.primary, large: true)).keyboardShortcut(.defaultAction)
             }
-            .controlSize(.large)
+            .environment(\.fillButtons, true)
             .padding(.top, 8)
-            Button("Later") { shell.later.insert(offer.container.string) }.buttonStyle(.link).keyboardShortcut(.cancelAction)
+            Button("Later") { shell.later.insert(offer.container.string) }.buttonStyle(UuobButton(.ghost)).keyboardShortcut(.cancelAction)
         }
         .padding(28)
-        .frame(width: 440)
+        .frame(width: 460)
+        .background(Look.elevated)
+        .foregroundStyle(Look.text)
+        .buttonStyle(UuobButton(large: true))
     }
 
     private func answer(_ accept: Bool) {
@@ -123,13 +129,9 @@ struct ShareSheet: View {
                 }, cancel: back)
             case .new:
                 SheetFrame(title: "Share with someone new", lead: "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", center: true) {
-                    Picker("", selection: Binding(get: { access }, set: { access = $0; newInvite() })) {
-                        Text("Can view").tag("read")
-                        Text("Can edit").tag("write")
-                    }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    Segmented([("read", "Can view"), ("write", "Can edit")], selected: access) { access = $0; newInvite() }
                     if let invite { CodeView(invite: invite, waiting: "Waiting for them…").padding(.vertical, 8) }
-                    else if let error { Text(error).foregroundStyle(.red) }
+                    else if let error { Text(error).foregroundStyle(Look.danger) }
                     else { ProgressView() }
                 } buttons: {
                     Button("Back") { back() }.keyboardShortcut(.cancelAction)
@@ -142,26 +144,21 @@ struct ShareSheet: View {
                                 Avatar(name: p.name.string, size: 30)
                                 Text(p.name.string)
                                 Spacer()
-                                Picker("", selection: Binding(get: { level(p) }, set: { v in set(p, v) })) {
-                                    Text("No access").tag("none")
-                                    Text("Can view").tag("read")
-                                    Text("Can edit").tag("write")
-                                }
-                                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                                Segmented([("none", "No access"), ("read", "Can view"), ("write", "Can edit")], selected: level(p)) { v in set(p, v) }
                             }
                             .padding(.vertical, 8)
-                            Divider()
+                            Rectangle().fill(Look.line).frame(height: 1)
                         }
                         Button(action: someoneNew) {
                             HStack {
-                                Image(systemName: "plus.circle.fill")
+                                Ico("plus", size: 20)
                                 Text("Someone new…")
                                 Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                                Ico("chevron", size: 18).foregroundStyle(Look.text3)
                             }
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain).foregroundStyle(Color.accentColor).padding(.vertical, 10)
+                        .buttonStyle(.plain).foregroundStyle(Look.accent).padding(.vertical, 10)
                     }
                 } buttons: {
                     Button("Done") { done() }.keyboardShortcut(.defaultAction)

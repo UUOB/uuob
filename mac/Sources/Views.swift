@@ -8,11 +8,12 @@ import SwiftUI
 enum Screen: String, CaseIterable, Identifiable, Hashable {
     case network = "Network", access = "Access", settings = "Settings"
     var id: Self { self }
+    /// Its line icon (Kit.swift).
     var icon: String {
         switch self {
-        case .network: "point.3.connected.trianglepath.dotted"
-        case .access: "checkmark.shield"
-        case .settings: "gearshape"
+        case .network: "network"
+        case .access: "shield"
+        case .settings: "settings"
         }
     }
 }
@@ -38,20 +39,8 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(Screen.allCases, selection: Bindable(shell).screen) { s in
-                NavigationLink(value: s) {
-                    Label(s.rawValue, systemImage: s.icon).badge(badge(s))
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-            .safeAreaInset(edge: .bottom) {
-                Label("End-to-end encrypted", systemImage: "lock.fill")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .help("Your data is stored only on your own devices.")
-            }
-        } detail: {
+        HStack(spacing: 0) {
+            Rail()
             Group {
                 switch shell.screen ?? .network {
                 case .network: NetworkView()
@@ -59,31 +48,26 @@ struct ContentView: View {
                 case .settings: SettingsView()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top) {
                 if let e = shell.serverError {
                     Text("\(e) Close other copies of UUOB and open it again.")
-                        .padding(10).frame(maxWidth: .infinity)
-                        .background(.red.opacity(0.15)).foregroundStyle(.red)
-                }
-            }
-            .toolbar {
-                if let v = shell.update {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(shell.updating ? "Updating…" : shell.updateError != nil ? "Try again" : "Update to \(v)") { shell.installUpdate() }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(shell.updating)
-                            .help(shell.updateError ?? "Installs UUOB \(v) and restarts it")
-                    }
+                        .font(.system(size: 15)).padding(12).frame(maxWidth: .infinity)
+                        .background(Look.dangerSoft).foregroundStyle(Look.danger)
                 }
             }
         }
+        .background(Look.bg)
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) {
             if let t = shell.toast {
-                Text(t).font(.callout.weight(.medium))
-                    .padding(.horizontal, 18).padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .shadow(radius: 8, y: 4)
-                    .padding(.bottom, 24)
+                // UUOB's toast: a small pill.
+                Text(t).font(.system(size: 15, weight: .medium)).foregroundStyle(Look.text)
+                    .padding(.horizontal, 20).padding(.vertical, 12)
+                    .background(Look.elevated, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Look.lineStrong))
+                    .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
+                    .padding(.bottom, 28)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -107,6 +91,59 @@ struct ContentView: View {
     }
 }
 
+/// UUOB's rail: each screen an icon in a soft tile with its name under it,
+/// a dot when there is news, the Update button and the lock at the bottom.
+struct Rail: View {
+    @Environment(Shell.self) private var shell
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ForEach(Screen.allCases) { s in
+                let on = (shell.screen ?? .network) == s
+                Button { shell.screen = s } label: {
+                    VStack(spacing: 4) {
+                        Ico(s.icon, size: 20)
+                            .frame(width: 40, height: 40)
+                            .background(on ? Look.active : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(alignment: .topTrailing) {
+                                if let dot = dot(s) {
+                                    Circle().fill(dot).frame(width: 8, height: 8).overlay(Circle().strokeBorder(Look.elevated, lineWidth: 2)).padding(6)
+                                }
+                            }
+                        Text(s.rawValue).font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(on ? Look.text : Look.text2)
+                    .frame(width: 76).padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(s.rawValue)
+            }
+            Spacer()
+            if let v = shell.update {
+                Button(shell.updating ? "…" : "Update") { shell.installUpdate() }
+                    .buttonStyle(UuobButton(.primary)).controlSize(.small).disabled(shell.updating)
+                    .help(shell.updateError ?? "Installs UUOB \(v) and restarts it")
+            }
+            Ico("lock", size: 16).foregroundStyle(Look.text3).padding(8)
+                .help("End-to-end encrypted. Your data is stored only on your own devices.")
+        }
+        .padding(.top, 44).padding(.bottom, 14)
+        .frame(width: 84)
+        .frame(maxHeight: .infinity)
+        .background(Look.rail)
+        .overlay(alignment: .trailing) { Rectangle().fill(Look.line).frame(width: 1) }
+    }
+
+    private func dot(_ s: Screen) -> Color? {
+        switch s {
+        case .network where shell.status.devices_total.int > 1: shell.status.devices_online.int > 1 ? Look.ok : Look.text3
+        case .access where !shell.asks.isEmpty || !shell.offers.isEmpty: Look.warn
+        default: nil
+        }
+    }
+}
+
 // MARK: - Shared pieces
 
 /// The line under a screen's title.
@@ -122,7 +159,7 @@ struct Lead: View {
 /// Online or offline.
 struct Dot: View {
     let on: Bool
-    var body: some View { Circle().fill(on ? Color.green : Color.secondary).frame(width: 8, height: 8) }
+    var body: some View { Circle().fill(on ? Look.ok : Look.text3).frame(width: 9, height: 9) }
 }
 
 /// Every app gets a tile the same way: a colour from its id and its first letter. UUOB knows no app in particular.
@@ -152,7 +189,7 @@ struct Avatar: View {
     var size: CGFloat = 36
     var mine = false
     var body: some View {
-        Circle().fill((mine ? Color.accentColor : Color.teal).gradient)
+        Circle().fill(mine ? AnyShapeStyle(Look.accent) : AnyShapeStyle(Look.person))
             .frame(width: size, height: size)
             .overlay(Text(initial(name)).font(.system(size: size * 0.42, weight: .semibold, design: .rounded)).foregroundStyle(.white))
     }
@@ -164,8 +201,8 @@ struct TwoLines: View {
     let detail: String
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-            Text(detail).font(.callout).foregroundStyle(.secondary)
+            Text(title).font(.system(size: 16, weight: .semibold))
+            Text(detail).font(.system(size: 13)).foregroundStyle(Look.text2).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -243,16 +280,20 @@ struct SheetFrame<Content: View, Buttons: View>: View {
 
     var body: some View {
         VStack(alignment: center ? .center : .leading, spacing: 14) {
-            Text(title).font(.title2.weight(.semibold)).multilineTextAlignment(center ? .center : .leading)
-            if let lead { Text(lead).foregroundStyle(.secondary).multilineTextAlignment(center ? .center : .leading).fixedSize(horizontal: false, vertical: true) }
+            Text(title).font(.system(size: 22, weight: .semibold)).tracking(-0.44).multilineTextAlignment(center ? .center : .leading)
+            if let lead { Text(lead).font(.system(size: 17)).foregroundStyle(Look.text2).multilineTextAlignment(center ? .center : .leading).fixedSize(horizontal: false, vertical: true) }
             content
-            HStack {
-                Spacer()
+            HStack(spacing: 10) {
                 buttons
             }
-            .padding(.top, 6)
+            .environment(\.fillButtons, true)
+            .padding(.top, 8)
         }
-        .padding(24)
-        .frame(width: 480)
+        .padding(28)
+        .frame(width: 460)
+        .background(Look.elevated)
+        .foregroundStyle(Look.text)
+        .buttonStyle(UuobButton(large: true))
+        .toggleStyle(UuobSwitch())
     }
 }

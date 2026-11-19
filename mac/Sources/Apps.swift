@@ -60,22 +60,23 @@ struct AppsView: View {
     }
 
     var body: some View {
-        Form {
+        Page(title: groups.first?.name ?? "", back: { dismiss() }) {
             ForEach(groups) { g in
-                Section {
+                Card {
                     HStack(spacing: 12) {
                         AppTile(app: g.id, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(g.name).font(.headline)
+                            Text(g.name).font(.system(size: 16, weight: .semibold))
                             HStack(spacing: 0) {
-                                Text("\(plural(g.records, "item", "items")) · \(size(g.bytes)) · ").foregroundStyle(.secondary)
-                                Text(g.installed ? "Connected" : "Not connected, data kept").foregroundStyle(g.installed ? .green : .orange)
+                                Text("\(plural(g.records, "item", "items")) · \(size(g.bytes)) · ").foregroundStyle(Look.text2)
+                                Text(g.installed ? "Connected" : "Not connected, data kept").foregroundStyle(g.installed ? Look.ok : Look.warn)
                             }
+                            .font(.system(size: 13))
                             let note = storageNote(g)
-                            if !note.isEmpty { Text(note).foregroundStyle(.secondary) }
+                            if !note.isEmpty { Text(note).font(.system(size: 13)).foregroundStyle(Look.text2) }
                         }
                         Spacer()
-                        Button { exportJSON(g) } label: { Label("Copy as JSON", systemImage: "doc.on.doc") }
+                        Button { exportJSON(g) } label: { Ico("copy", size: 18) }.buttonStyle(IconButtonStyle()).help("Copy as JSON")
                     }
                     if !g.parts.isEmpty {
                         DisclosureGroup("In \(g.name)") {
@@ -84,12 +85,12 @@ struct AppsView: View {
                                     Text(part.name.string)
                                     Text(part.here.bool ? plural(part.records.int, "item", "items") : "Not on this device").foregroundStyle(.secondary)
                                     Spacer()
-                                    if let note = sharedNote(part) { Label(note, systemImage: "person.2").foregroundStyle(.secondary) }
+                                    if let note = sharedNote(part) { HStack(spacing: 4) { Ico("people", size: 14); Text(note) }.foregroundStyle(Look.text2) }
                                 }
                             }
                         }
                     }
-                    LabeledContent("Who can access it") {
+                    Trailing("Who can access it") {
                         VStack(alignment: .trailing, spacing: 4) {
                             if g.access.isEmpty { Text("Nobody — only you, from this screen.").foregroundStyle(.secondary) }
                             ForEach(g.access, id: \.client.string) { a in
@@ -98,23 +99,23 @@ struct AppsView: View {
                                     Text(a.client_name.string)
                                     Text((a.access.string == "write" ? "Read & write" : "Read only") + (owner ? " · owner" : "")).foregroundStyle(.secondary)
                                     if !owner {
-                                        Button { revoke(g, a) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                                            .buttonStyle(.borderless).help("Remove access")
+                                        Button { revoke(g, a) } label: { Ico("close", size: 16) }
+                                            .buttonStyle(IconButtonStyle()).help("Remove access")
                                     }
                                 }
                             }
                         }
                     }
                     if !g.copies.isEmpty {
-                        LabeledContent("On devices without UUOB") {
+                        Trailing("On devices without UUOB") {
                             VStack(alignment: .trailing, spacing: 4) {
                                 ForEach(g.copies, id: \.key) { copy in
                                     let device = copy.value.device.str ?? "Another device"
                                     HStack(spacing: 6) {
                                         Text(device)
                                         Text("Connected \(copy.value.created_at.date.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(.secondary)
-                                        Button { unlink(g, copy.key, device) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                                            .buttonStyle(.borderless).help("Disconnect \(g.name) on \(device)")
+                                        Button { unlink(g, copy.key, device) } label: { Ico("close", size: 16) }
+                                            .buttonStyle(IconButtonStyle()).help("Disconnect \(g.name) on \(device)")
                                     }
                                 }
                             }
@@ -123,40 +124,38 @@ struct AppsView: View {
                     HStack {
                         Spacer()
                         if g.installed {
-                            Button("Disconnect \(g.name)…", role: .destructive) { disconnecting = g }
+                            Button("Disconnect \(g.name)…", role: .destructive) { disconnecting = g }.buttonStyle(UuobButton(.danger))
                         } else {
-                            Button("Delete Data…", role: .destructive) { wiping = g }
+                            Button("Delete Data…", role: .destructive) { wiping = g }.buttonStyle(UuobButton(.danger))
                         }
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle(groups.first?.name ?? "")
         .task(id: shell.tick) {
             await load()
             // Disconnected with its data deleted: nothing left to show.
             if groups.isEmpty { dismiss() }
         }
         .sheet(isPresented: $coding, onDismiss: { Task { await load() } }) { AppCodeSheet() }
-        .confirmationDialog("Disconnect \(disconnecting?.name ?? "")?", isPresented: Binding(get: { disconnecting != nil }, set: { if !$0 { disconnecting = nil } }), presenting: disconnecting) { g in
-            Button("Keep the Data") { uninstall(g, delete: false) }
-            Button("Delete the Data Too", role: .destructive) { uninstall(g, delete: true) }
-            Button("Cancel", role: .cancel) {}
-        } message: { g in
-            Text("\(g.name) stops working with your network on all your devices. Keep its \(plural(g.records, "item", "items")) to connect it again later, or erase them from every device.")
-        }
-        .alert("Delete all \(wiping?.name ?? "") data?", isPresented: Binding(get: { wiping != nil }, set: { if !$0 { wiping = nil } }), presenting: wiping) { g in
-            Button("Delete", role: .destructive) {
-                shell.act {
-                    try await Core.call("uninstall_app", ["id": g.id, "delete_data": true])
-                    shell.show("\(g.name) data deleted on all devices")
-                    await load()
-                }
+        .sheet(item: $disconnecting) { g in
+            SheetFrame(title: "Disconnect \(g.name)?",
+                       lead: "\(g.name) stops working with your network on all your devices. Keep its \(plural(g.records, "item", "items")) to connect it again later, or erase them from every device.") {
+                EmptyView()
+            } buttons: {
+                Button("Cancel") { disconnecting = nil }.keyboardShortcut(.cancelAction)
+                Button("Keep the Data") { disconnecting = nil; uninstall(g, delete: false) }
+                Button("Delete the Data Too", role: .destructive) { disconnecting = nil; uninstall(g, delete: true) }.buttonStyle(UuobButton(.danger, large: true))
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { g in
-            Text("\(plural(g.records, "item is", "items are")) permanently erased from every device. This can’t be undone.")
+        }
+        .confirm("Delete all \(wiping?.name ?? "") data?", isPresented: Binding(get: { wiping != nil }, set: { if !$0 { wiping = nil } }),
+                 message: "\(plural(wiping?.records ?? 0, "item is", "items are")) permanently erased from every device. This can’t be undone.", action: "Delete") {
+            guard let g = wiping else { return }
+            shell.act {
+                try await Core.call("uninstall_app", ["id": g.id, "delete_data": true])
+                shell.show("\(g.name) data deleted on all devices")
+                await load()
+            }
         }
     }
 

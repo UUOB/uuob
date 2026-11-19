@@ -37,11 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let content = NSHostingController(rootView: ContentView().environment(shell))
-        content.sceneBridgingOptions = [.toolbars, .title]
+        // No toolbar or title: the rail and the pages are the window, as UUOB's always were.
+        content.sceneBridgingOptions = []
         let window = NSWindow(contentViewController: content)
         window.title = "UUOB"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.toolbarStyle = .unified
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.setContentSize(NSSize(width: 1000, height: 720))
         window.contentMinSize = NSSize(width: 760, height: 520)
         // Closing only hides it; showWindow brings the same window back.

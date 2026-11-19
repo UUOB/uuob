@@ -42,18 +42,18 @@ struct PeopleView: View {
     }
 
     var body: some View {
-        Form {
+        Page(title: shell.people.first { $0.id == only }?.name.string ?? "", back: { dismiss() }) {
             ForEach(shell.people.filter { $0.id == only }) { p in
-                Section {
+                Card {
                     HStack(spacing: 12) {
                         Avatar(name: p.name.string)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(p.name.string).font(.headline)
-                            HStack(spacing: 6) { Dot(on: p.online.bool); Text(p.online.bool ? "Online" : "Offline").foregroundStyle(.secondary) }
+                            Text(p.name.string).font(.system(size: 16, weight: .semibold))
+                            HStack(spacing: 6) { Dot(on: p.online.bool); Text(p.online.bool ? "Online" : "Offline").font(.system(size: 13)).foregroundStyle(Look.text2) }
                         }
                         Spacer()
-                        Button(role: .destructive) { removing = p } label: { Image(systemName: "trash") }
-                            .buttonStyle(.borderless).help("Remove \(p.name.string)")
+                        Button(role: .destructive) { removing = p } label: { Ico("trash", size: 18) }
+                            .buttonStyle(IconButtonStyle()).help("Remove \(p.name.string)")
                     }
                     let receiving = p.receiving.array
                     let sharing = p.sharing.array
@@ -67,11 +67,12 @@ struct PeopleView: View {
                                 Button("Accept") {
                                     act("accept_share", ["container": s.container.string], toast: "“\(s.name.string)” was added to \(s.app_name.string)")
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(UuobButton(.primary))
                             } else {
                                 Button("Leave", role: .destructive) {
                                     act("delete_container", ["id": s.container.string], toast: "You left “\(s.name.string)”")
                                 }
+                                .buttonStyle(UuobButton(.danger))
                             }
                         }
                     }
@@ -80,28 +81,22 @@ struct PeopleView: View {
                             AppTile(app: s.app.string, size: 28)
                             TwoLines(title: s.name.string, detail: "You share · \(s.app_name.string)")
                             Spacer()
-                            Picker("", selection: Binding(get: { s.access.string }, set: { v in
+                            Segmented([("read", "Can view"), ("write", "Can edit")], selected: s.access.string) { v in
                                 act("share_with", ["container": s.container.string, "person": p.id, "access": v])
-                            })) {
-                                Text("Can view").tag("read")
-                                Text("Can edit").tag("write")
                             }
-                            .pickerStyle(.segmented).labelsHidden().fixedSize()
                             Button { act("share_with", ["container": s.container.string, "person": p.id, "access": nil], toast: "Stopped sharing “\(s.name.string)” with \(p.name.string)") } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                Ico("close", size: 16)
                             }
-                            .buttonStyle(.borderless).help("Stop sharing")
+                            .buttonStyle(IconButtonStyle()).help("Stop sharing")
                         }
                     }
                     if receiving.isEmpty && sharing.isEmpty {
-                        Text("Nothing shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.").foregroundStyle(.secondary)
+                        Text("Nothing shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.").font(.system(size: 13)).foregroundStyle(Look.text2)
                     }
                 }
             }
 
         }
-        .formStyle(.grouped)
-        .navigationTitle(shell.people.first { $0.id == only }?.name.string ?? "")
         .task(id: shell.tick) { await load() }
         .onChange(of: shell.people.contains { $0.id == only }) { _, here in if !here { dismiss() } }
         .sheet(isPresented: $naming) {
@@ -120,15 +115,11 @@ struct PeopleView: View {
             case .meet: MeetSheet()
             }
         }
-        .alert("Remove \(removing?.name.string ?? "")?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-            Button("Remove", role: .destructive) {
-                guard let p = removing else { return }
-                act("remove_person", ["id": p.id], toast: "\(p.name.string) was removed")
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            let n = removing?.name.string ?? ""
-            Text("Everything you share with each other stops. What \(n) shared disappears from your devices, and what you shared disappears from theirs the next time they connect.")
+        .confirm("Remove \(removing?.name.string ?? "")?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                 message: "Everything you share with each other stops. What \(removing?.name.string ?? "") shared disappears from your devices, and what you shared disappears from theirs the next time they connect.",
+                 action: "Remove") {
+            guard let p = removing else { return }
+            act("remove_person", ["id": p.id], toast: "\(p.name.string) was removed")
         }
     }
 }
@@ -146,7 +137,7 @@ struct NameSheet: View {
 
     var body: some View {
         SheetFrame(title: "Your name", lead: "This is how you appear to people you share with.") {
-            TextField("e.g. Alex", text: $name).textFieldStyle(.roundedBorder).font(.title3).onSubmit(submit)
+            TextField("e.g. Alex", text: $name).textFieldStyle(UuobField()).font(.title3).onSubmit(submit)
             if let error { Text(error).foregroundStyle(.red) }
         } buttons: {
             Button("Cancel", role: .cancel) { if let cancel { cancel() } else { dismiss() } }.keyboardShortcut(.cancelAction)
@@ -218,7 +209,7 @@ struct MeetSheet: View {
 
     var body: some View {
         SheetFrame(title: "Enter a code", lead: "Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.") {
-            TextField("e.g. 42 amber river falcon", text: $code).textFieldStyle(.roundedBorder).font(.title3).autocorrectionDisabled().onSubmit(meet)
+            TextField("e.g. 42 amber river falcon", text: $code).textFieldStyle(UuobField()).font(.title3).autocorrectionDisabled().onSubmit(meet)
             if let error { Text(error).foregroundStyle(.red) }
             Text("Your devices and data stay your own. You see only what they share with you.").font(.callout).foregroundStyle(.secondary)
         } buttons: {
