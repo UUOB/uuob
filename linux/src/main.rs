@@ -117,6 +117,9 @@ pub struct Widgets {
     banner: adw::Banner,
     update: gtk::Button,
     pages: [adw::PreferencesPage; 3],
+    /// The rail's buttons (beside the pages, or under them when narrow): the
+    /// screen each opens, the button, its dot.
+    navs: Vec<(&'static str, gtk::Button, gtk::Box)>,
     groups: Vec<(usize, adw::PreferencesGroup)>,
     stack: adw::ViewStack,
 }
@@ -146,8 +149,7 @@ impl relm4::Component for App {
         }
 
         let header = adw::HeaderBar::new();
-        let switcher = adw::ViewSwitcher::builder().stack(&stack).policy(adw::ViewSwitcherPolicy::Wide).build();
-        header.set_title_widget(Some(&switcher));
+        header.set_title_widget(Some(&gtk::Label::new(None)));
         let update = gtk::Button::builder().css_classes(["suggested-action", "pill"]).visible(false).build();
         update.connect_clicked({
             let sender = sender.clone();
@@ -164,19 +166,43 @@ impl relm4::Component for App {
         content.append(&banner);
         content.append(&stack);
         stack.set_vexpand(true);
-        toasts.set_child(Some(&content));
+        content.set_hexpand(true);
 
-        let bar = adw::ViewSwitcherBar::builder().stack(&stack).build();
+        // UUOB's rail, as its screens always had: each screen an icon in a soft
+        // tile with its name under it, the lock at the bottom. On a phone or
+        // a small window it becomes a bar under the pages.
+        let mut navs = Vec::new();
+        let side = rail(&stack, gtk::Orientation::Vertical, &mut navs);
+        let bottom = rail(&stack, gtk::Orientation::Horizontal, &mut navs);
+        bottom.set_visible(false);
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        row.append(&side);
+        row.append(&content);
+        row.set_vexpand(true);
+        let all = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        all.append(&row);
+        all.append(&bottom);
+        toasts.set_child(Some(&all));
+        let mark = {
+            let navs: Vec<(&'static str, gtk::Button)> = navs.iter().map(|(id, b, _)| (*id, b.clone())).collect();
+            move |stack: &adw::ViewStack| {
+                let on = stack.visible_child_name().unwrap_or_default();
+                for (id, b) in &navs {
+                    if on == *id { b.add_css_class("on") } else { b.remove_css_class("on") }
+                }
+            }
+        };
+        mark(&stack);
+        stack.connect_visible_child_name_notify(mark);
+
         let view = adw::ToolbarView::new();
         view.add_top_bar(&header);
         view.set_content(Some(&toasts));
-        view.add_bottom_bar(&bar);
         root.set_content(Some(&view));
 
-        // Narrow (a phone, a small window): the switcher moves to the bottom.
         let narrow = adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 550sp").expect("condition"));
-        narrow.add_setter(&bar, "reveal", Some(&true.to_value()));
-        narrow.add_setter(&header, "title-widget", Some(&None::<gtk::Widget>.to_value()));
+        narrow.add_setter(&side, "visible", Some(&false.to_value()));
+        narrow.add_setter(&bottom, "visible", Some(&true.to_value()));
         root.add_breakpoint(narrow);
 
         // Closing the window keeps UUOB running; opening UUOB again shows it.
@@ -226,7 +252,7 @@ impl relm4::Component for App {
             row: None,
             show: "all".into(),
         };
-        ComponentParts { model, widgets: Widgets { toasts, banner, update, pages, groups: Vec::new(), stack } }
+        ComponentParts { model, widgets: Widgets { toasts, banner, update, pages, navs, groups: Vec::new(), stack } }
     }
 
     fn update_with_view(&mut self, w: &mut Widgets, msg: Msg, sender: ComponentSender<Self>, root: &Self::Root) {
@@ -371,6 +397,24 @@ impl App {
         for g in pages::settings(&self.data, sender) {
             add(2, g);
         }
+        // The rail's dots: devices online (green) or not, and something waiting in Access.
+        let total = self.data.status["devices_total"].as_u64().unwrap_or(0);
+        let online = self.data.status["devices_online"].as_u64().unwrap_or(0);
+        let offers = self.data.people.iter().flat_map(|p| p["receiving"].as_array().cloned().unwrap_or_default()).filter(|s| s["offered"].as_bool() == Some(true)).count();
+        for (id, _, dot) in &w.navs {
+            let class = match *id {
+                "network" if total > 1 => Some(if online > 1 { "ok" } else { "off" }),
+                "access" if self.data.asks.len() + offers > 0 => Some("warn"),
+                _ => None,
+            };
+            for c in ["ok", "off", "warn"] {
+                dot.remove_css_class(c);
+            }
+            dot.set_visible(class.is_some());
+            if let Some(c) = class {
+                dot.add_css_class(c);
+            }
+        }
         // UUOB_SCREEN=access opens on that page (for screenshots).
         if let Ok(screen) = std::env::var("UUOB_SCREEN") {
             w.stack.set_visible_child_name(&screen);
@@ -380,9 +424,44 @@ impl App {
 
 mod pages;
 
+/// The rail: a button per screen (an icon in a tile, its name under it), and
+/// the lock at the end when it stands beside the pages.
+fn rail(stack: &adw::ViewStack, orientation: gtk::Orientation, navs: &mut Vec<(&'static str, gtk::Button, gtk::Box)>) -> gtk::Box {
+    let vertical = orientation == gtk::Orientation::Vertical;
+    let bar = gtk::Box::builder().orientation(orientation).spacing(4).css_classes(if vertical { vec!["rail"] } else { vec!["rail", "bottom"] }).build();
+    if vertical {
+        bar.set_width_request(84);
+    } else {
+        bar.set_homogeneous(true);
+    }
+    for (id, title, glyph) in [("network", "Network", "network"), ("access", "Access", "shield"), ("settings", "Settings", "settings")] {
+        let tile = gtk::Overlay::builder().css_classes(["navtile"]).halign(gtk::Align::Center).width_request(40).height_request(40).build();
+        tile.set_child(Some(&icon(glyph, 20)));
+        let dot = gtk::Box::builder().css_classes(["navdot"]).halign(gtk::Align::End).valign(gtk::Align::Start).visible(false).build();
+        tile.add_overlay(&dot);
+        let inside = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(4).build();
+        inside.append(&tile);
+        inside.append(&gtk::Label::builder().label(title).css_classes(["navlabel"]).build());
+        let b = gtk::Button::builder().child(&inside).css_classes(["nav"]).tooltip_text(title).build();
+        let stack = stack.clone();
+        b.connect_clicked(move |_| stack.set_visible_child_name(id));
+        bar.append(&b);
+        navs.push((id, b, dot));
+    }
+    if vertical {
+        let spacer = gtk::Box::builder().vexpand(true).build();
+        bar.append(&spacer);
+        let lock = icon("lock", 16);
+        lock.add_css_class("lock");
+        lock.set_tooltip_text(Some("End-to-end encrypted. Your data is stored only on your own devices."));
+        bar.append(&lock);
+    }
+    bar
+}
+
 /// How wide the graph is drawn in a window this wide (pages are at most about 600 wide).
 fn graph_width(window: i32) -> f64 {
-    (window as f64 - 48.0).clamp(300.0, 600.0)
+    (window as f64 - 48.0 - if window > 550 { 84.0 } else { 0.0 }).clamp(300.0, 600.0)
 }
 
 fn main() {

@@ -14,8 +14,9 @@ type Sender = ComponentSender<App>;
 
 fn group(title: &str, description: &str) -> adw::PreferencesGroup {
     let g = adw::PreferencesGroup::new();
+    // UUOB's section labels: small capitals (`.section-label`).
     if !title.is_empty() {
-        g.set_title(title);
+        g.set_title(&title.to_uppercase());
     }
     if !description.is_empty() {
         g.set_description(Some(description));
@@ -23,8 +24,8 @@ fn group(title: &str, description: &str) -> adw::PreferencesGroup {
     g
 }
 
-fn icon_button(icon: &str, tip: &str, sender: &Sender, msg: impl Fn() -> Msg + 'static) -> gtk::Button {
-    let b = gtk::Button::builder().icon_name(icon).tooltip_text(tip).valign(gtk::Align::Center).css_classes(["flat"]).build();
+fn icon_button(name: &str, tip: &str, sender: &Sender, msg: impl Fn() -> Msg + 'static) -> gtk::Button {
+    let b = gtk::Button::builder().child(&icon(name, 18)).tooltip_text(tip).valign(gtk::Align::Center).css_classes(["flat", "image-button"]).build();
     let sender = sender.clone();
     b.connect_clicked(move |_| sender.input(msg()));
     b
@@ -60,10 +61,22 @@ fn platform(p: &str) -> &str {
     }
 }
 
+/// A page's top: its large title and a grey line about it.
+pub fn header(title: &str, lead: &str) -> adw::PreferencesGroup {
+    let g = adw::PreferencesGroup::new();
+    let b = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(10).margin_top(24).margin_bottom(4).build();
+    b.append(&gtk::Label::builder().label(title).css_classes(["large-title"]).xalign(0.0).build());
+    if !lead.is_empty() {
+        b.append(&gtk::Label::builder().label(lead).css_classes(["lead"]).xalign(0.0).wrap(true).build());
+    }
+    g.add(&b);
+    g
+}
+
 /// Network: the graph, what is picked in it, then your devices.
 pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = Vec::new();
-    let top = group("", "Your devices in the middle, each app on the device it runs on, people at the edge.");
+    let mut out = vec![header("Network", "Your devices in the middle, each app on the device it runs on, people at the edge.")];
+    let top = group("", "");
     if d.graph["nodes"].is_array() {
         top.add(&crate::graph::graph(&d.graph, picked, sender));
     }
@@ -71,8 +84,16 @@ pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::Pref
     let nodes = d.graph["nodes"].as_array().cloned().unwrap_or_default();
     let shown = nodes.iter().find(|n| Some(s(n, "id")) == picked).or_else(|| nodes.iter().find(|n| n["self"].as_bool() == Some(true)));
     if let Some(about) = shown.map(|n| &n["about"]) {
-        let g = group(s(about, "kind"), "");
-        g.add(&adw::ActionRow::builder().title(s(about, "title")).subtitle(s(about, "detail")).css_classes(["property"]).build());
+        let g = group("", "");
+        let card = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(4).css_classes(["about"]).build();
+        if !s(about, "kind").is_empty() {
+            card.append(&gtk::Label::builder().label(s(about, "kind").to_uppercase()).css_classes(["kind"]).xalign(0.0).build());
+        }
+        card.append(&gtk::Label::builder().label(s(about, "title")).css_classes(["what"]).xalign(0.0).build());
+        if !s(about, "detail").is_empty() {
+            card.append(&gtk::Label::builder().label(s(about, "detail")).css_classes(["lead"]).xalign(0.0).wrap(true).build());
+        }
+        g.add(&card);
         out.push(g);
     }
 
@@ -84,13 +105,15 @@ pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::Pref
         let keeps = if dev["keeper"].as_bool() == Some(true) { " · keeps everything" } else { "" };
         let row = adw::ActionRow::builder().title(s(dev, "name")).subtitle(format!("{status} · {}{keeps}", platform(s(dev, "platform")))).build();
         let phone = matches!(s(dev, "platform"), "android" | "ios");
-        row.add_prefix(&gtk::Image::builder().icon_name(if phone { "phone-symbolic" } else { "computer-symbolic" }).pixel_size(28).build());
+        let tile = gtk::Box::builder().css_classes(["devtile"]).width_request(44).height_request(44).valign(gtk::Align::Center).halign(gtk::Align::Center).homogeneous(true).build();
+        tile.append(&icon(if phone { "phone" } else { "laptop" }, 24));
+        row.add_prefix(&tile);
         if me {
             let name = s(dev, "name").to_string();
-            row.add_suffix(&icon_button("document-edit-symbolic", "Rename", sender, move || Msg::Dialog(Open::Rename(name.clone()))));
+            row.add_suffix(&icon_button("edit", "Rename", sender, move || Msg::Dialog(Open::Rename(name.clone()))));
         } else {
             let dev = dev.clone();
-            row.add_suffix(&icon_button("user-trash-symbolic", "Remove from network", sender, move || Msg::Dialog(Open::RemoveDevice(dev.clone()))));
+            row.add_suffix(&icon_button("trash", "Remove from network", sender, move || Msg::Dialog(Open::RemoveDevice(dev.clone()))));
         }
         list.add(&row);
     }
@@ -102,13 +125,13 @@ pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::Pref
 
 /// Settings: your name, this computer, storage, updates, leaving the network.
 pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = Vec::new();
+    let mut out = vec![header("Settings", "This computer, your storage and updates.")];
     let me = s(&d.status["network"], "name").to_string();
     let you = group("You", "");
     let row = adw::ActionRow::builder().title(if me.is_empty() { "No name yet" } else { &me }).subtitle("The name people you link with see").build();
     row.add_prefix(&avatar(&me, 40));
     let current = me.clone();
-    row.add_suffix(&icon_button("document-edit-symbolic", "Change name", sender, move || Msg::Dialog(Open::Name(current.clone(), None))));
+    row.add_suffix(&icon_button("edit", "Change name", sender, move || Msg::Dialog(Open::Name(current.clone(), None))));
     you.add(&row);
     out.push(you);
 
@@ -181,16 +204,21 @@ pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<
         };
         // Gone (disconnected, removed): back to the list.
         if !detail.is_empty() {
-            let back = gtk::Button::builder().icon_name("go-previous-symbolic").label("Access").css_classes(["flat"]).halign(gtk::Align::Start).build();
-            back.set_child(Some(&adw::ButtonContent::builder().icon_name("go-previous-symbolic").label("Access").build()));
+            let back = gtk::Button::builder().css_classes(["flat"]).halign(gtk::Align::Start).build();
+            let inside = gtk::Box::builder().spacing(6).build();
+            inside.append(&icon("back", 18));
+            inside.append(&gtk::Label::new(Some("Access")));
+            back.set_child(Some(&inside));
             let s2 = sender.clone();
             back.connect_clicked(move |_| s2.input(Msg::Row(None)));
             let top = adw::PreferencesGroup::new();
             top.add(&back);
-            return std::iter::once(top).chain(detail).collect();
+            let name = d.access.iter().find(|r| s(r, "key") == key).map(|r| s(r, "name").to_string()).unwrap_or_default();
+            return [top, header(&name, "")].into_iter().chain(detail).collect();
         }
     }
-    let list = group("", "Everything that can reach your data, and what each one can read or write.");
+    let top = header("Access", "Everything that can reach your data, and what each one can read or write.");
+    let list = group("", "");
     let head = gtk::Box::builder().spacing(12).build();
     let s2 = sender.clone();
     head.append(&choice(&[("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], show, move |v| s2.input(Msg::Filter(v))));
@@ -218,17 +246,18 @@ pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<
             "app" => app_tile(s(r, "id"), 40),
             "person" => avatar(s(r, "name"), 40),
             _ => {
-                let i = gtk::Image::builder().icon_name("starred-symbolic").pixel_size(20).width_request(40).height_request(40).css_classes(["tile", "purple"]).build();
-                i.upcast()
+                let tile = gtk::Box::builder().css_classes(["tile", "purple"]).width_request(40).height_request(40).valign(gtk::Align::Center).homogeneous(true).build();
+                tile.append(&icon("ai", 20));
+                tile.upcast()
             }
         });
-        row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+        row.add_suffix(&icon("chevron", 18));
         let (s2, key) = (sender.clone(), s(r, "key").to_string());
         row.connect_activated(move |_| s2.input(Msg::Row(Some(key.clone()))));
         items.append(&row);
     }
     list.add(&items);
-    vec![list]
+    vec![top, list]
 }
 
 pub fn people(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
@@ -240,7 +269,7 @@ pub fn people(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGrou
         let head = adw::ActionRow::builder().title(&name).subtitle(if online { "Online" } else { "Offline" }).build();
         head.add_prefix(&avatar(&name, 40));
         let person = p.clone();
-        head.add_suffix(&icon_button("user-trash-symbolic", &format!("Remove {name}"), sender, move || Msg::Dialog(Open::RemovePerson(person.clone()))));
+        head.add_suffix(&icon_button("trash", &format!("Remove {name}"), sender, move || Msg::Dialog(Open::RemovePerson(person.clone()))));
         g.add(&head);
         let receiving = p["receiving"].as_array().cloned().unwrap_or_default();
         let sharing = p["sharing"].as_array().cloned().unwrap_or_default();
@@ -270,7 +299,7 @@ pub fn people(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGrou
                 sender2.input(Msg::Act("share_with", json!({ "container": c2, "person": pid2, "access": v }), None))
             }));
             let toast = format!("Stopped sharing “{}” with {name}", s(sh, "name"));
-            row.add_suffix(&icon_button("window-close-symbolic", "Stop sharing", sender, move || {
+            row.add_suffix(&icon_button("close", "Stop sharing", sender, move || {
                 Msg::Act("share_with", json!({ "container": c, "person": pid, "access": null }), Some(toast.clone()))
             }));
             g.add(&row);
@@ -313,7 +342,7 @@ pub fn apps(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup>
         head.add_prefix(&app_tile(id, 40));
         let (cs_ids, gname) = (cs.iter().map(|c| (s(c, "id").to_string(), s(c, "name").to_string())).collect::<Vec<_>>(), name.clone());
         let app_id = id.to_string();
-        head.add_suffix(&icon_button("edit-copy-symbolic", "Copy as JSON", sender, move || Msg::Dialog(Open::Export(app_id.clone(), gname.clone(), cs_ids.clone()))));
+        head.add_suffix(&icon_button("copy", "Copy as JSON", sender, move || Msg::Dialog(Open::Export(app_id.clone(), gname.clone(), cs_ids.clone()))));
         g.add(&head);
         for part in cs.iter().filter(|c| s(c, "id") != id) {
             let mut sub = if part["here"].as_bool() == Some(true) { plural(part["records"].as_u64().unwrap_or(0), "item", "items") } else { "Not on this device".into() };
@@ -330,7 +359,7 @@ pub fn apps(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup>
             let row = adw::ActionRow::builder().title(s(a, "client_name")).subtitle(format!("{}{}", if s(a, "access") == "write" { "Read & write" } else { "Read only" }, if owner { " · owner" } else { "" })).build();
             if !owner {
                 let (app_id, toast) = (id.to_string(), format!("{} can no longer access {name}", s(a, "client_name")));
-                row.add_suffix(&icon_button("window-close-symbolic", "Remove access", sender, move || {
+                row.add_suffix(&icon_button("close", "Remove access", sender, move || {
                     Msg::Act("set_grant", json!({ "client": client, "app": app_id, "access": null }), Some(toast.clone()))
                 }));
             }
@@ -341,7 +370,7 @@ pub fn apps(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup>
                 let device = copy["device"].as_str().unwrap_or("Another device").to_string();
                 let row = adw::ActionRow::builder().title(&device).subtitle(format!("Without UUOB · connected {}", day(copy["created_at"].as_f64().unwrap_or(0.0)))).build();
                 let (cid, toast) = (cid.clone(), format!("{name} on {device} was disconnected"));
-                row.add_suffix(&icon_button("window-close-symbolic", "Disconnect", sender, move || Msg::Act("delete_client", json!({ "id": cid }), Some(toast.clone()))));
+                row.add_suffix(&icon_button("close", "Disconnect", sender, move || Msg::Act("delete_client", json!({ "id": cid }), Some(toast.clone()))));
                 g.add(&row);
             }
         }
@@ -368,7 +397,7 @@ pub fn ai(d: &Data, only: &str, sender: &Sender) -> Vec<adw::PreferencesGroup> {
     for (cid, c) in clients {
         let g = group(s(c, "name"), &format!("Connected {}", day(c["created_at"].as_f64().unwrap_or(0.0))));
         let (cid2, name) = (cid.clone(), s(c, "name").to_string());
-        g.set_header_suffix(Some(&icon_button("user-trash-symbolic", "Disconnect", sender, move || Msg::Dialog(Open::RemoveAi(cid2.clone(), name.clone())))));
+        g.set_header_suffix(Some(&icon_button("trash", "Disconnect", sender, move || Msg::Dialog(Open::RemoveAi(cid2.clone(), name.clone())))));
         for k in &apps {
             let app = s(k, "owner_app").to_string();
             let title = d.containers.iter().find(|c| s(c, "id") == app).map(|c| s(c, "name")).unwrap_or(app.as_str()).to_string();

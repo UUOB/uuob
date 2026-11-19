@@ -487,8 +487,8 @@ fn share_sheet(root: &adw::ApplicationWindow, sender: Sender, ask: Value, data: 
                     group.add(&row);
                 }
                 let new = adw::ActionRow::builder().title("Someone new…").activatable(true).build();
-                new.add_prefix(&gtk::Image::from_icon_name("list-add-symbolic"));
-                new.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+                new.add_prefix(&icon("plus", 20));
+                new.add_suffix(&icon("chevron", 18));
                 let (body2, c2, list3, invite2) = (body.downgrade(), container.clone(), list2.clone(), invite.clone());
                 new.connect_activated(move |_| {
                     if me.is_empty() {

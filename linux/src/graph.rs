@@ -49,24 +49,23 @@ pub fn graph(g: &Value, picked: Option<&str>, sender: &ComponentSender<App>) -> 
                 b.add_css_class(COLORS[n["tint"].as_u64().unwrap_or(0) as usize % 8]);
                 b.set_label(s(n, "letter"));
             }
-            "person" => {
-                b.add_css_class("tile");
-                b.add_css_class("teal");
-                b.set_label(s(n, "letter"));
-            }
+            "person" => b.set_label(s(n, "letter")),
             "ai" => {
                 b.add_css_class("tile");
                 b.add_css_class("purple");
-                b.set_icon_name("starred-symbolic");
+                b.set_child(Some(&icon("ai", (size * 0.5) as i32)));
             }
             "bubble" => b.set_label(&n["count"].to_string()),
-            "fold" => b.set_icon_name("window-close-symbolic"),
-            _ => b.set_icon_name(match () {
-                _ if s(n, "id") == "unseen" => "dialog-question-symbolic",
-                _ if n["keeper"].as_bool() == Some(true) => "network-server-symbolic",
-                _ if matches!(s(n, "platform"), "android" | "ios") => "phone-symbolic",
-                _ => "computer-symbolic",
-            }),
+            "fold" => b.set_child(Some(&icon("close", (size * 0.5) as i32))),
+            _ => b.set_child(Some(&icon(
+                match () {
+                    _ if s(n, "id") == "unseen" => "question",
+                    _ if n["keeper"].as_bool() == Some(true) => "server",
+                    _ if matches!(s(n, "platform"), "android" | "ios") => "phone",
+                    _ => "laptop",
+                },
+                (size * 0.45) as i32,
+            ))),
         }
         if n["dotted"].as_bool() == Some(true) {
             b.add_css_class("dotted");
