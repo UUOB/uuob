@@ -4,7 +4,7 @@
 #   uuob/docker/release.sh        in an app's repository (UUOB's is its `uuob` folder)
 #
 # Before running it, raise the version (UUOB: crates/uuob-app/Cargo.toml; an
-# app: app/src-tauri/tauri.conf.json), commit and push: the Mac build runs on
+# app: its Cargo.toml, or app/src-tauri/tauri.conf.json for a web one), commit and push: the Mac build runs on
 # GitHub from the pushed commit.
 # This then
 #   1. builds and signs the Android APK here (and, for UUOB, the `uuob`
@@ -29,9 +29,11 @@ D=${HERE#"$ROOT"/} # these scripts as the containers see them: docker, or uuob/d
 REPO=${UUOB_RELEASES:-jachymri/uuob-releases}
 
 if [ -x android/build.sh ]; then
-  # UUOB's native app: its name in android/settings.gradle.kts, its version in crates/uuob-app/Cargo.toml.
+  # A native app: its name in android/settings.gradle.kts, its version in
+  # crates/uuob-app/Cargo.toml (UUOB) or the workspace's Cargo.toml (an app).
   name=$(sed -n 's/^rootProject.name = "\(.*\)"/\1/p' android/settings.gradle.kts)
-  version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/uuob-app/Cargo.toml | head -1)
+  vfile=Cargo.toml; [ -f crates/uuob-app/Cargo.toml ] && vfile=crates/uuob-app/Cargo.toml
+  version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$vfile" | head -1)
 else
   field() { python3 -c 'import json,sys; print(json.load(open("app/src-tauri/tauri.conf.json"))[sys.argv[1]])' "$1"; }
   name=$(field productName) version=$(field version)

@@ -4,6 +4,6 @@
 #   docker build -t uuob-linux:1 -f docker/linux.Dockerfile docker
 FROM rust:1-trixie
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libgtk-4-dev libadwaita-1-dev xvfb xauth imagemagick dbus-x11 fonts-inter adwaita-icon-theme xdotool \
+      libgtk-4-dev libadwaita-1-dev libgtk-4-media-gstreamer gstreamer1.0-libav xvfb xauth imagemagick dbus-x11 fonts-inter adwaita-icon-theme xdotool \
       libwebkit2gtk-4.1-0 \
     && rm -rf /var/lib/apt/lists/*
