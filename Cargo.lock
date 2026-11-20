@@ -5726,6 +5726,7 @@ name = "tauri-plugin-uuob-sdk"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "tauri",
  "tauri-plugin",
  "tokio",
@@ -6599,7 +6600,6 @@ dependencies = [
  "chacha20poly1305",
  "data-encoding",
  "gethostname",
- "hex",
  "iroh",
  "postcard",
  "rand 0.8.8",

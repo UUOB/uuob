@@ -14,6 +14,8 @@ mod files;
 mod mcp;
 
 use std::net::SocketAddr;
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::extract::Request;
 use axum::{Extension, Router};
@@ -24,31 +26,38 @@ use axum::routing::{get, post};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use uuob_core::Node;
 
-pub const DEFAULT_PORT: u16 = 7745;
-
-/// The port for this user. Android profiles share one network stack, so
-/// each profile gets its own port (7745 + profile number); otherwise apps in
-/// one profile would reach UUOB in another. Apps compute the same number.
-pub fn port() -> u16 {
-    #[cfg(target_os = "android")]
-    {
-        unsafe extern "C" {
-            safe fn getuid() -> u32;
-        }
-        return DEFAULT_PORT + (getuid() / 100_000) as u16;
-    }
-    #[allow(unreachable_code)]
-    DEFAULT_PORT
-}
+pub use uuob_core::{DEFAULT_PORT, local_port as port};
 
 /// Serve until the task is dropped.
 pub async fn serve(node: Node, addr: SocketAddr) -> std::io::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("UUOB local server on http://{addr}");
-    tokio::select! {
+    LISTENING.store(true, Ordering::Relaxed);
+    let r = tokio::select! {
         r = axum::serve(listener, router(node.clone())) => r,
         _ = serve_remote(node) => Ok(()),
+    };
+    LISTENING.store(false, Ordering::Relaxed);
+    r
+}
+
+/// This process holds UUOB's port (see [`proof`]).
+static LISTENING: AtomicBool = AtomicBool::new(false);
+
+/// Proof that the server on UUOB's port is this process: an answer to
+/// `nonce` that only this process can give, and only while it is listening.
+/// An app on Android asks for it twice, once from the UUOB app through the
+/// system (which only the real UUOB receives) and once from the port
+/// (`GET /api?prove=`), and sends its token only if both agree. Another app
+/// that took the port first cannot answer; if it passed the nonce on to
+/// UUOB, UUOB would find its port taken and give no answer either.
+pub fn proof(nonce: &str) -> Option<String> {
+    static KEY: OnceLock<[u8; 32]> = OnceLock::new();
+    if !LISTENING.load(Ordering::Relaxed) || nonce.is_empty() || nonce.len() > 128 {
+        return None;
     }
+    let key = KEY.get_or_init(uuob_core::random32);
+    Some(uuob_core::sha256_hex(&[key.as_slice(), nonce.as_bytes()].concat()))
 }
 
 /// What a connected app uses.

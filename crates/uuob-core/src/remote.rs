@@ -163,7 +163,7 @@ impl Tunnel {
         let saved: Option<Link> = std::fs::read(&file).ok().and_then(|b| serde_json::from_slice(&b).ok());
         let link = match saved {
             Some(l) => {
-                let key: [u8; 32] = hex::decode(&l.key)
+                let key: [u8; 32] = data_encoding::HEXLOWER_PERMISSIVE.decode(l.key.as_bytes())
                     .ok()
                     .and_then(|k| k.try_into().ok())
                     .ok_or_else(|| Error::Invalid("the saved link is damaged".into()))?;
@@ -220,7 +220,7 @@ impl Tunnel {
                 return Err(e);
             }
         };
-        self.save(&Link { key: hex::encode(key), devices: devices.clone() })?;
+        self.save(&Link { key: data_encoding::HEXLOWER.encode(&key), devices: devices.clone() })?;
         let old = self.0.link.lock().await.replace(Linked::new(endpoint, devices));
         if let Some(old) = old {
             old.endpoint.close().await;
@@ -232,12 +232,7 @@ impl Tunnel {
 
     fn save(&self, link: &Link) -> Result<()> {
         let bytes = serde_json::to_vec(link).map_err(anyhow::Error::from)?;
-        std::fs::write(&self.0.file, bytes).map_err(anyhow::Error::from)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&self.0.file, std::fs::Permissions::from_mode(0o600));
-        }
+        crypto::write_secret(&self.0.file, &bytes).map_err(anyhow::Error::from)?;
         Ok(())
     }
 
@@ -320,7 +315,7 @@ impl Tunnel {
                 Some((conn, devices)) => {
                     if devices != l.devices && !devices.is_empty() {
                         l.devices = devices;
-                        let key = hex::encode(l.endpoint.secret_key().to_bytes());
+                        let key = data_encoding::HEXLOWER.encode(&l.endpoint.secret_key().to_bytes());
                         let _ = self.save(&Link { key, devices: l.devices.clone() });
                     }
                     l.conn = Some(conn);

@@ -36,7 +36,7 @@ mod words;
 
 pub use api::DATA_METHODS;
 pub use connect::{Ask, PendingAsk};
-pub use crypto::{FileKeyStore, KeyStore};
+pub use crypto::{random32, sha256_hex};
 pub use error::{Error, Result};
 pub use files::{FileInfo, FileReader, FileWriter};
 pub use iroh::address_lookup::MemoryLookup;
@@ -47,3 +47,22 @@ pub use node::{
 };
 pub use pairing::{Invite, normalize_code};
 pub use remote::{Request, Tunnel, device_name};
+
+/// UUOB's local server port, without Android profiles.
+pub const DEFAULT_PORT: u16 = 7745;
+
+/// UUOB's local server port for this user, the one apps use to find it.
+/// Android profiles share one network stack, so each profile gets its own
+/// port (7745 + profile number); otherwise apps in one profile would reach
+/// UUOB in another. UUOB and the app SDK both take it from here.
+pub fn local_port() -> u16 {
+    #[cfg(target_os = "android")]
+    {
+        unsafe extern "C" {
+            safe fn getuid() -> u32;
+        }
+        return DEFAULT_PORT + (getuid() / 100_000) as u16;
+    }
+    #[allow(unreachable_code)]
+    DEFAULT_PORT
+}

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::crypto;
 use crate::error::{Error, Result};
 use crate::net::{self, Access, ClientInfo};
-use crate::node::{AppManifest, Client, Node, validate_ident};
+use crate::node::{AppManifest, Client, Node, valid_name, validate_ident};
 use crate::store::now_ms;
 
 /// How long a question waits for the user before it counts as "no".
@@ -129,33 +129,42 @@ impl Node {
 
     /// Connect an app: with a code from UUOB, or by asking the user. Returns
     /// the app's token. The app gets its own container (created if needed).
+    ///
+    /// Asking is only for an app UUOB has not seen: the question shows the
+    /// name the app gives itself, so anything could claim to be "Notes" while
+    /// using the id of an app that is already connected and take its data.
+    /// An app that was connected before (or whose data is still here) needs
+    /// a code, which the user types into the app they mean.
     pub async fn connect_app(&self, m: &AppManifest, code: Option<&str>) -> Result<String> {
-        validate_ident(&m.id)?;
-        let name = m.name.trim();
-        if name.is_empty() || name.len() > 64 {
-            return Err(Error::Invalid("app name must be 1–64 characters".into()));
-        }
+        let m = checked(m)?;
         match code {
             Some(c) => self.take_app_code(c).await?,
             None => {
-                if !self.ask(Ask::Connect { app: m.id.clone(), name: name.into() }).await {
+                let known = self.read_net(|d| {
+                    net::apps(d).get(&m.id).is_some_and(|a| a.installed)
+                        || net::containers(d).values().any(|c| c.owner_app == m.id && !c.deleted && c.from.is_none())
+                });
+                if known {
+                    return Err(Error::PermissionDenied(format!(
+                        "{} was connected before; to connect it again, type a code from UUOB → Access → Add → An app",
+                        m.name
+                    )));
+                }
+                if !self.ask(Ask::Connect { app: m.id.clone(), name: m.name.clone() }).await {
                     return Err(Error::PermissionDenied("the connection was not allowed".into()));
                 }
             }
         }
-        self.grant_app(&AppManifest { id: m.id.clone(), name: name.into() }, None)
+        self.grant_app(&m, None)
     }
 
     /// The user agreed: register the app (its own container is created if
     /// needed) and return a new token for it. `endpoint`: the app is on a
     /// device without UUOB and reaches us from this endpoint id only.
     pub(crate) fn grant_app(&self, m: &AppManifest, linked: Option<(String, String)>) -> Result<String> {
-        validate_ident(&m.id)?;
-        let name = m.name.trim();
-        if name.is_empty() || name.len() > 64 {
-            return Err(Error::Invalid("app name must be 1–64 characters".into()));
-        }
-        self.install_app(&AppManifest { id: m.id.clone(), name: name.into() })?;
+        let m = checked(m)?;
+        let name = m.name.as_str();
+        self.install_app(&m)?;
         let token = format!("uuob_{}", crypto::random_id(32));
         // A linked app (see `remote.rs`): its endpoint id and its device's name.
         let (endpoint, device) = linked.unzip();
@@ -281,6 +290,12 @@ impl Node {
     }
 }
 
+/// An app's id and name as UUOB keeps them: a valid id, a trimmed name.
+fn checked(m: &AppManifest) -> Result<AppManifest> {
+    validate_ident(&m.id)?;
+    Ok(AppManifest { id: m.id.clone(), name: valid_name(&m.name)? })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,7 +309,6 @@ mod tests {
             device_name: "Mac".into(),
             platform: "macos".into(),
             net: NetMode::Local(MemoryLookup::new()),
-            keystore: None,
         };
         let node = Node::open(config).await.unwrap();
         let me = node.status().device_id;

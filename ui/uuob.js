@@ -153,7 +153,9 @@ async function flush() {
           }
         }
       } catch (err) {
-        if (err.code === 'unreachable') return;
+        // Only a refusal drops a change; anything else (UUOB away, a full
+        // disk, …) keeps it waiting for the next try.
+        if (!['permission_denied', 'not_found', 'invalid'].includes(err.code)) return;
       }
     }
     listeners.forEach((f) => f('*'));
@@ -173,9 +175,35 @@ class UuobError extends Error {
   }
 }
 
+// On Android another app could take UUOB's port while UUOB is not running
+// and collect what apps send it. So before anything goes to the port, it must
+// answer a random nonce as UUOB on this phone answers it through Android
+// (`prove`, which only the real UUOB receives; see uuob_api::proof). A tunnel
+// to another device is the app's own, and needs no such check.
+const android = /Android/.test(globalThis.navigator?.userAgent ?? '');
+let trusted = !android;
+async function verify() {
+  const nonce = newId();
+  let hello;
+  try {
+    hello = await (await fetch(`${BASE}?prove=${nonce}`)).json();
+  } catch {
+    throw new UuobError('unreachable', 'UUOB isn’t running on this device');
+  }
+  if (!hello.remote) {
+    const mine = await shell('prove', { nonce }).catch(() => null);
+    if (!mine || mine !== hello.proof) {
+      console.warn('UUOB: the server on UUOB’s port is not UUOB; nothing was sent to it');
+      throw new UuobError('unreachable', 'Another app is using UUOB’s port');
+    }
+  }
+  trusted = true;
+}
+
 // `type`: the body is sent as it is (a file) instead of as JSON.
 async function request(path, body, { signal, type } = {}) {
   await ready;
+  if (!trusted) await verify();
   let res;
   try {
     res = await fetch(BASE + path, {
@@ -186,6 +214,8 @@ async function request(path, body, { signal, type } = {}) {
     });
   } catch (e) {
     if (e.name === 'AbortError') throw e;
+    // Whatever answers on the port next must prove itself again.
+    trusted = !android;
     throw new UuobError('unreachable', 'UUOB isn’t running on this device');
   }
   const data = await res.json().catch(() => ({}));
@@ -229,6 +259,7 @@ async function follow() {
   while (!ctl.signal.aborted) {
     try {
       await ready;
+      if (!trusted) await verify();
       const res = await fetch(BASE + '/events', { headers: { Authorization: `Bearer ${token}` }, signal: ctl.signal });
       if (res.status === 401) return forget();
       setState('connected');
@@ -248,6 +279,7 @@ async function follow() {
       }
     } catch (e) {
       if (ctl.signal.aborted) return;
+      trusted = !android;
     }
     // UUOB went away: retry every few seconds until it's back.
     if (!ctl.signal.aborted) {
@@ -518,8 +550,10 @@ export const uuob = {
             throw e;
           })
           .then(changed),
-      /** An address for `<img>`, `<video>` (seeking works) or `fetch`. */
-      url: (id) => `${BASE}/files/${id}?${q}&key=${token}`,
+      /** An address for `<img>`, `<video>` (seeking works) or `fetch`. Empty
+       *  while the server on the port has not proven it is UUOB (Android):
+       *  the address carries the app's key. */
+      url: (id) => (trusted ? `${BASE}/files/${id}?${q}&key=${token}` : ''),
       /** `[{ id, size, type, added, here }]`; `here`: the bytes are on this device. */
       list: () => call('files', { container: c }),
       delete: (id) => call('delete_file', { container: c, id }).then(changed),

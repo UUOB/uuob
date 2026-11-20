@@ -16,7 +16,6 @@ async fn node(dir: &TempDir, name: &str, net: &MemoryLookup) -> Node {
         device_name: name.into(),
         platform: "linux".into(),
         net: NetMode::Local(net.clone()),
-        keystore: None,
     })
     .await
     .unwrap()
@@ -207,7 +206,6 @@ async fn internet_pairing_and_sync() {
             device_name: name.into(),
             platform: "linux".into(),
             net: NetMode::Internet,
-            keystore: None,
         })
     };
     let (da, db) = (TempDir::new().unwrap(), TempDir::new().unwrap());
@@ -243,6 +241,11 @@ async fn dispatcher_enforces_roles() {
     let t = n.call(&Client::Shell, "create_client", json!({"name": "Claude"})).await.unwrap();
     let ai = n.authenticate(t["token"].as_str().unwrap()).unwrap();
     assert!(n.call(&ai, "list", json!({"collection": "tasks"})).await.is_err());
+    // An AI with no access changes nothing outside its data, not even settings.
+    assert!(n.call(&ai, "set_settings", json!({"hour12": true})).await.is_err());
+    assert!(n.call(&ai, "settings", json!({})).await.is_err());
+    assert!(n.call(&ai, "keep", json!({"container": "tasks", "keep": "none"})).await.is_err());
+    assert!(n.call(&tasks(), "settings", json!({})).await.is_ok(), "apps still may");
 }
 
 #[tokio::test]
@@ -1347,4 +1350,29 @@ fn at_once<F: std::future::Future<Output = Result<serde_json::Value>>>(f: F) -> 
         std::task::Poll::Ready(r) => r.unwrap(),
         std::task::Poll::Pending => panic!("settings should answer at once"),
     }
+}
+
+/// A change that could not be stored (the disk is full, say) does not stay
+/// in memory as if it were: the app sees the old record, and trying again
+/// stores it once the disk works again.
+#[tokio::test]
+async fn a_change_that_could_not_be_stored_is_not_kept() {
+    let net = MemoryLookup::new();
+    let d = TempDir::new().unwrap();
+    let n = node(&d, "A", &net).await;
+    n.install_app(&manifest("tasks", "Tasks")).unwrap();
+    n.put(&tasks(), "tasks", "tasks", Some("t1"), json!({"title": "Milk"})).unwrap();
+
+    // Break the store from outside, the way a full disk would.
+    let db = rusqlite::Connection::open(d.path().join("uuob.db")).unwrap();
+    db.execute_batch("ALTER TABLE changes RENAME TO changes_away;").unwrap();
+    assert!(n.put(&tasks(), "tasks", "tasks", Some("t1"), json!({"title": "Oat milk"})).is_err());
+
+    db.execute_batch("ALTER TABLE changes_away RENAME TO changes;").unwrap();
+    assert_eq!(n.get(&tasks(), "tasks", "tasks", "t1").unwrap().unwrap()["title"], "Milk", "not kept in memory");
+    n.put(&tasks(), "tasks", "tasks", Some("t1"), json!({"title": "Oat milk"})).unwrap();
+    n.shutdown().await;
+    drop(n);
+    let n = node(&d, "A", &net).await;
+    assert_eq!(n.get(&tasks(), "tasks", "tasks", "t1").unwrap().unwrap()["title"], "Oat milk", "stored for good");
 }

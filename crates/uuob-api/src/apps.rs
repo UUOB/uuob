@@ -1,7 +1,8 @@
 //! The API apps use. Plain JSON over HTTP:
 //!
 //! - `GET  /api`          → `{ "uuob": version, "device": name, "remote": bool }`
-//!   (is UUOB here? `remote`: on another device, through the tunnel)
+//!   (is UUOB here? `remote`: on another device, through the tunnel);
+//!   `?prove=<nonce>` adds `proof`, see [`crate::proof`]
 //! - `POST /api/connect`  `{ app, name, code? }` → `{ token }`. Without a code
 //!   UUOB asks the user, and the request waits for the answer.
 //! - `POST /api/call`     `{ method, params }` + bearer token → `{ result }`
@@ -18,7 +19,7 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::{Extension, Json};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::sse::{Event as Sse, KeepAlive};
@@ -31,9 +32,19 @@ use uuob_core::{Access, AppManifest, Error, Event, Node};
 
 use crate::{Linked, bearer, client};
 
-/// `remote`: the app is on another device and reaches this one through the tunnel.
-pub(crate) async fn hello(State(node): State<Node>, linked: Option<Extension<Linked>>) -> Json<Value> {
-    Json(json!({ "uuob": env!("CARGO_PKG_VERSION"), "device": node.status().device_name, "remote": linked.is_some() }))
+/// `remote`: the app is on another device and reaches this one through the
+/// tunnel. `?prove=<nonce>` adds `proof` (see [`crate::proof`]), only here.
+pub(crate) async fn hello(State(node): State<Node>, linked: Option<Extension<Linked>>, Query(q): Query<Hello>) -> Json<Value> {
+    let mut hello = json!({ "uuob": env!("CARGO_PKG_VERSION"), "device": node.status().device_name, "remote": linked.is_some() });
+    if let Some(proof) = q.prove.filter(|_| linked.is_none()).and_then(|n| crate::proof(&n)) {
+        hello["proof"] = proof.into();
+    }
+    Json(hello)
+}
+
+#[derive(Deserialize)]
+pub(crate) struct Hello {
+    prove: Option<String>,
 }
 
 pub(crate) fn error(e: Error) -> Response {

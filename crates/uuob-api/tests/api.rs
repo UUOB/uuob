@@ -29,7 +29,6 @@ async fn ai_sees_only_what_it_was_granted() {
         device_name: "A".into(),
         platform: "linux".into(),
         net: NetMode::Local(MemoryLookup::new()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -96,7 +95,6 @@ async fn apps_connect_by_allow_or_code() {
         device_name: "Laptop".into(),
         platform: "linux".into(),
         net: NetMode::Local(MemoryLookup::new()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -147,6 +145,17 @@ async fn apps_connect_by_allow_or_code() {
     // Shell-only methods are refused.
     let (s, _) = http(port, "POST", "/api/call", &tasks, Some(json!({"method": "devices"}))).await;
     assert_eq!(s, 403);
+
+    // Asking again under an id that is connected is refused without a
+    // question: the question shows only the name the asker gives, so anything
+    // could claim to be "Notes" and take Tasks' data. A code still works.
+    let (s, r) = http(port, "POST", "/api/connect", "", Some(json!({"app": "tasks", "name": "Notes"}))).await;
+    assert_eq!(s, 403, "{r}");
+    assert!(node.asks().is_empty());
+    assert_eq!(node.apps()["tasks"].name, "Tasks", "not renamed");
+    let code = node.create_app_code().await.unwrap().code;
+    let (s, _) = http(port, "POST", "/api/connect", "", Some(json!({"app": "tasks", "name": "Tasks", "code": code}))).await;
+    assert_eq!(s, 200);
 
     // Connect with a code: wrong code refused, right code works once.
     let (s, _) = http(port, "POST", "/api/connect", "", Some(json!({"app": "calendar", "name": "Calendar", "code": "000000x"}))).await;
@@ -202,7 +211,6 @@ async fn apps_keep_lists_in_their_own_containers() {
         device_name: "Laptop".into(),
         platform: "linux".into(),
         net: NetMode::Local(MemoryLookup::new()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -298,7 +306,6 @@ async fn apps_store_and_read_files() {
         device_name: "Laptop".into(),
         platform: "linux".into(),
         net: NetMode::Local(MemoryLookup::new()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -381,7 +388,6 @@ async fn the_owner_key_acts_as_the_user() {
             device_name: "Server".into(),
             platform: "linux".into(),
             net: NetMode::Local(MemoryLookup::new()),
-            keystore: None,
         })
     };
     let node = open().await.unwrap();
@@ -438,7 +444,6 @@ async fn an_app_on_another_device_gets_the_app_routes_and_nothing_else() {
         device_name: "Server".into(),
         platform: "linux".into(),
         net: NetMode::Local(net.clone()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -550,7 +555,6 @@ async fn apps_bind_their_android_package() {
         device_name: "Phone".into(),
         platform: "android".into(),
         net: NetMode::Local(MemoryLookup::new()),
-        keystore: None,
     })
     .await
     .unwrap();
@@ -587,4 +591,35 @@ async fn apps_bind_their_android_package() {
     let again = connect("tasks").await;
     assert_eq!(bind(again, "org.example.tasks").await, 200);
     assert_ne!(node.android_packages()["tasks"]["org.example.tasks"], first);
+}
+
+/// The server on UUOB's port can show an app (through Android, see
+/// `ProveReceiver`) that it is this UUOB, and only while it holds the port.
+#[tokio::test]
+async fn the_server_proves_it_is_this_uuob() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let node = Node::open(Config {
+        data_dir: dir.path().into(),
+        device_name: "Phone".into(),
+        platform: "android".into(),
+        net: NetMode::Local(MemoryLookup::new()),
+    })
+    .await
+    .unwrap();
+    assert_eq!(uuob_api::proof("n1"), None, "not listening yet");
+    let port = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap().local_addr().unwrap().port();
+    tokio::spawn(uuob_api::serve(node, ([127, 0, 0, 1], port).into()));
+    for _ in 0..100 {
+        if uuob_api::proof("n1").is_some() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    let (s, hello) = http(port, "GET", "/api?prove=n1", "", None).await;
+    assert_eq!(s, 200);
+    assert_eq!(hello["proof"].as_str(), uuob_api::proof("n1").as_deref());
+    assert!(hello["proof"].is_string());
+    assert_ne!(uuob_api::proof("n1"), uuob_api::proof("n2"));
+    let (_, plain) = http(port, "GET", "/api", "", None).await;
+    assert!(plain.get("proof").is_none());
 }

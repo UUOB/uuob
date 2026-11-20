@@ -1,54 +1,45 @@
 //! Keys and encryption at rest.
 //!
-//! A 32-byte master key lives in a [`KeyStore`] (the OS keychain in the app,
-//! a 0600 file for the headless node and tests). Every container has its own
-//! random key, stored wrapped by the master key, so deleting a container's key
-//! makes any leftover bytes unreadable.
+//! A 32-byte master key and the device's own key are files in
+//! `<data dir>/keys`, readable only by the user. Every container has its own
+//! random key, stored wrapped by the master key, so deleting a container's
+//! key makes any leftover bytes unreadable. The keys sit next to the data:
+//! encryption at rest protects a copy of the database that is taken without
+//! the keys folder, not a copy of the whole data folder.
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Context;
 use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit, Payload},
 };
+use data_encoding::{HEXLOWER, HEXLOWER_PERMISSIVE};
 use rand::RngCore;
 
 use crate::error::{Error, Result};
 
-pub trait KeyStore: Send + Sync + 'static {
-    /// Load the secret named `name`, creating a random one when missing.
-    fn load_or_create(&self, name: &str) -> Result<[u8; 32]>;
-}
-
-/// Stores keys as files with owner-only permissions.
-pub struct FileKeyStore {
-    dir: PathBuf,
-}
-
-impl FileKeyStore {
-    pub fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+/// Load the key `<dir>/<name>.key`, creating a random one when missing.
+pub(crate) fn load_or_create_key(dir: &Path, name: &str) -> Result<[u8; 32]> {
+    std::fs::create_dir_all(dir).context("create key dir")?;
+    let path = dir.join(format!("{name}.key"));
+    if let Ok(text) = std::fs::read_to_string(&path) {
+        let bytes = HEXLOWER_PERMISSIVE.decode(text.trim().as_bytes()).context("decode key")?;
+        return bytes.try_into().map_err(|_| Error::Invalid("bad key length".into()));
     }
+    let key = random32();
+    write_secret(&path, HEXLOWER.encode(&key).as_bytes()).context("write key")?;
+    Ok(key)
 }
 
-impl KeyStore for FileKeyStore {
-    fn load_or_create(&self, name: &str) -> Result<[u8; 32]> {
-        std::fs::create_dir_all(&self.dir).context("create key dir")?;
-        let path = self.dir.join(format!("{name}.key"));
-        if let Ok(text) = std::fs::read_to_string(&path) {
-            let bytes = hex::decode(text.trim()).context("decode key")?;
-            return bytes.try_into().map_err(|_| Error::Invalid("bad key length".into()));
-        }
-        let key = random32();
-        std::fs::write(&path, hex::encode(key)).context("write key")?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-        }
-        Ok(key)
-    }
+/// Write a file only its owner can read, from the moment it exists.
+pub(crate) fn write_secret(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(path)?.write_all(bytes)
 }
 
 pub fn random32() -> [u8; 32] {
@@ -89,7 +80,7 @@ pub fn open(key: &[u8; 32], data: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
 
 pub fn sha256_hex(data: &[u8]) -> String {
     use sha2::Digest;
-    hex::encode(sha2::Sha256::digest(data))
+    HEXLOWER.encode(&sha2::Sha256::digest(data))
 }
 
 #[cfg(test)]

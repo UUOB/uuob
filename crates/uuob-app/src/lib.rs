@@ -62,7 +62,6 @@ async fn open(data_dir: PathBuf) -> uuob_core::Result<Node> {
         device_name: uuob_core::device_name(),
         platform: std::env::consts::OS.into(),
         net: NetMode::Internet,
-        keystore: None,
     })
     .await?;
     *EVENTS.lock().await = Some(node.subscribe());

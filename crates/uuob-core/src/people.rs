@@ -409,3 +409,55 @@ impl Node {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::node::AppManifest;
+    use crate::{Config, MemoryLookup, NetMode};
+
+    /// A linked person's devices tell us what they share. A hostile one must
+    /// not be able to take over our own containers or our own devices by
+    /// saying so.
+    #[tokio::test]
+    async fn a_person_cannot_claim_what_is_ours() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = Config {
+            data_dir: dir.path().into(),
+            device_name: "Mac".into(),
+            platform: "macos".into(),
+            net: NetMode::Local(MemoryLookup::new()),
+        };
+        let node = Node::open(config).await.unwrap();
+        node.install_app(&AppManifest { id: "tasks".into(), name: "Tasks".into() }).unwrap();
+        let ours = node.create_container("tasks", "Groceries", Some("abcdefghijklmnop")).unwrap();
+        let me = node.status().device_id;
+        node.add_person(&Card { network: "mallory-net".into(), name: "Mallory".into(), devices: vec![] }).unwrap();
+
+        let claim = |container: &str, app: &str| Shared {
+            container: container.into(),
+            name: "Mine now".into(),
+            app: app.into(),
+            app_name: "Tasks".into(),
+            generation: 7,
+            access: Some(Access::Write),
+        };
+        let about = About {
+            name: "Mallory".into(),
+            devices: vec![(me.clone(), false)],
+            shares: vec![claim(&ours, "tasks"), claim("tasks", "tasks"), claim("photos.abcdef", "tasks")],
+            ..About::default()
+        };
+        node.apply_about("mallory-net", &about).unwrap();
+
+        node.read_net(|d| {
+            let c = net::container(d, &ours).unwrap();
+            assert_eq!((c.from, c.name.as_str(), c.generation), (None, "Groceries", 0), "our list stays ours");
+            assert!(net::container(d, "tasks").unwrap().from.is_none(), "an app's own container stays ours");
+            assert!(net::container(d, "photos.abcdef").is_none(), "a container not of the app it names is ignored");
+            assert!(net::person_device(d, &me).is_none(), "our own device stays ours");
+            assert!(net::member(d, &me).is_some_and(|m| !m.removed));
+        });
+        assert_eq!(node.peer_access(&node.id(), &net::doc_id(&ours, 0)), Some(Access::Write), "this device, not Mallory's");
+    }
+}

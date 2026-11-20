@@ -9,6 +9,8 @@ import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Hands each app on this phone what is its own, for the app to show:
@@ -111,5 +113,36 @@ object ToApps {
 class AskReceiver : BroadcastReceiver() {
   override fun onReceive(ctx: Context, intent: Intent) {
     if (intent.action == "app.uuob.SEND_UPCOMING") ToApps.send(ctx)
+  }
+}
+
+/**
+ * An app on this phone checks that the server on UUOB's port is UUOB before
+ * it sends its key there: another app could have taken the port while UUOB
+ * was not running. The app sends an ordered broadcast to this package with a
+ * random `nonce`; only the real UUOB receives it (the broadcast names
+ * app.uuob). The answer is `uuob_api::proof(nonce)`, which the server on the
+ * port gives too (`GET /api?prove=`); the app compares the two. While the port
+ * is not UUOB's there is no answer.
+ */
+class ProveReceiver : BroadcastReceiver() {
+  override fun onReceive(ctx: Context, intent: Intent) {
+    val nonce = intent.getStringExtra("nonce") ?: return
+    val done = goAsync()
+    Core.scope.launch {
+      try {
+        runCatching { Core.start(ctx.applicationContext) }
+        // The server takes the port just after the node starts.
+        var proof: String? = null
+        for (i in 0 until 40) {
+          proof = app.uuob.core.prove(nonce)
+          if (proof != null) break
+          delay(50)
+        }
+        done.resultData = proof
+      } finally {
+        done.finish()
+      }
+    }
   }
 }

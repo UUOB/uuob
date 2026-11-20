@@ -68,9 +68,10 @@ fn end(item: &Json, start: &Zoned) -> Option<Zoned> {
     date.to_datetime(time).to_zoned(start.time_zone().clone()).ok()
 }
 
-/// When to ring for `item`: `alert` minutes before it starts, if it asks for that.
+/// When to ring for `item`: `alert` minutes before it starts, if it asks for
+/// that. More than a year before is not an alert (and would not fit a span).
 fn rings_at(item: &Json) -> Option<Timestamp> {
-    let before = item["alert"].as_i64()?;
+    let before = item["alert"].as_i64().filter(|m| (0..=525_600).contains(m))?;
     start(item)?.timestamp().checked_sub((before * 60).seconds()).ok()
 }
 
@@ -132,6 +133,9 @@ mod tests {
         assert_eq!(rings_at(&late), None);
         // An item without a time (a task due that day) has nothing to ring.
         assert_eq!(rings_at(&json!({"date": "2030-01-03", "title": "Bank", "alert": 0})), None);
+        // A value out of all reason from an app rings never, and stops nothing.
+        assert_eq!(rings_at(&json!({"date": "2030-01-03", "time": "09:30", "alert": 99999999999i64})), None);
+        assert_eq!(rings_at(&json!({"date": "2030-01-03", "time": "09:30", "alert": -5})), None);
         // The text is on this computer's clock.
         if TimeZone::system() == TimeZone::UTC {
             assert_eq!(text(&item, false), "8:30–9:00 · Room 2");

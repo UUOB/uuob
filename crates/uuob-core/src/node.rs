@@ -17,7 +17,7 @@ use serde_json::{Map, Value as Json};
 use tokio::sync::{Notify, broadcast, watch};
 use tracing::{info, warn};
 
-use crate::crypto::{self, FileKeyStore, KeyStore};
+use crate::crypto;
 use crate::doc;
 use crate::error::{Error, Result};
 use crate::net::{self, Access, AppInfo, ClientInfo, ContainerInfo, Inbox, Keep, Member, NET_DOC, NetworkInfo};
@@ -42,8 +42,6 @@ pub struct Config {
     pub device_name: String,
     pub platform: String,
     pub net: NetMode,
-    /// Where the master key lives. Defaults to `<data_dir>/keys`.
-    pub keystore: Option<Arc<dyn KeyStore>>,
 }
 
 /// Who is making a request. Permissions are enforced against this.
@@ -292,12 +290,9 @@ impl Node {
     /// to other devices is done with [`Node::create_invite`] / [`Node::join`].
     pub async fn open(cfg: Config) -> Result<Node> {
         std::fs::create_dir_all(&cfg.data_dir).map_err(anyhow::Error::from)?;
-        let keystore = cfg
-            .keystore
-            .clone()
-            .unwrap_or_else(|| Arc::new(FileKeyStore::new(cfg.data_dir.join("keys"))));
-        let master = keystore.load_or_create("master")?;
-        let device_secret = SecretKey::from_bytes(&keystore.load_or_create("device")?);
+        let keys = cfg.data_dir.join("keys");
+        let master = crypto::load_or_create_key(&keys, "master")?;
+        let device_secret = SecretKey::from_bytes(&crypto::load_or_create_key(&keys, "device")?);
         let store = Store::open(&cfg.data_dir.join("uuob.db"), master)?;
         // Documents saved by an older version get their fingerprint and counts once.
         for id in store.without_meta()? {
@@ -441,30 +436,39 @@ impl Node {
         from: Option<EndpointId>,
         f: impl FnOnce(&mut AutoCommit) -> Result<R>,
     ) -> Result<R> {
-        let mut files_missing = false;
-        let (result, changed) = {
+        let (result, changed, files_missing) = {
             let mut docs = self.0.docs.lock().unwrap();
-            let d = self.loaded(&mut docs, id)?;
-            let before = d.get_heads();
-            let result = f(d)?;
-            let changed = d.get_heads() != before;
-            if changed {
-                // Store only what is new. Once the changes add up, fold them
-                // into one full save so loading stays quick.
-                let meta = doc::meta(d);
-                let change = d.save_after(&before);
-                let store = self.0.store.lock().unwrap();
-                let pending = store.append_doc(id, &change, &meta)?;
-                if pending > FOLD_AFTER && pending * 3 > store.doc_size(id)? {
-                    store.save_doc(id, &d.save(), &meta)?;
+            let done = (|| -> Result<(R, bool, bool)> {
+                let d = self.loaded(&mut docs, id)?;
+                let before = d.get_heads();
+                let result = f(d)?;
+                let changed = d.get_heads() != before;
+                let mut files_missing = false;
+                if changed {
+                    // Store only what is new. Once the changes add up, fold them
+                    // into one full save so loading stays quick.
+                    let meta = doc::meta(d);
+                    let change = d.save_after(&before);
+                    let store = self.0.store.lock().unwrap();
+                    let pending = store.append_doc(id, &change, &meta)?;
+                    if pending > FOLD_AFTER && pending * 3 > store.doc_size(id)? {
+                        store.save_doc(id, &d.save(), &meta)?;
+                    }
+                    if id != NET_DOC {
+                        files_missing = crate::files::index(&store, &self.0.files_dir, id, d)?;
+                    }
+                    drop(store);
+                    docs.grew(id, change.len() as u64);
                 }
-                if id != NET_DOC {
-                    files_missing = crate::files::index(&store, &self.0.files_dir, id, d)?;
-                }
-                drop(store);
-                docs.grew(id, change.len() as u64);
+                Ok((result, changed, files_missing))
+            })();
+            // A change that was made here but not stored (the disk is full,
+            // say) must not linger in memory: a retry would find nothing to
+            // change and never store it. The document is read again from disk.
+            if done.is_err() {
+                docs.remove(id);
             }
-            (result, changed)
+            done?
         };
         if changed {
             self.after_change(id, from);
@@ -698,10 +702,8 @@ impl Node {
     }
 
     pub fn set_device_name(&self, name: &str) -> Result<()> {
-        let name = name.trim();
-        if name.is_empty() || name.len() > 64 {
-            return Err(Error::Invalid("device name must be 1–64 characters".into()));
-        }
+        let name = valid_name(name)?;
+        let name = name.as_str();
         *self.0.device_name.lock().unwrap() = name.to_string();
         let me = self.0.me.to_string();
         self.write_net(|d| {
@@ -1002,7 +1004,7 @@ impl Node {
 
     /// Everything in a container, as JSON (`{"<collection>/<id>": record}`).
     pub fn export_container(&self, client: &Client, container: &str) -> Result<Json> {
-        self.authorize(client, container, Access::Read)?;
+        self.check(client, container, Access::Read)?;
         let doc_id = self.local_doc_id(container)?;
         self.read_doc(&doc_id, |d| doc::to_json(d, &ROOT))
     }
@@ -1037,10 +1039,6 @@ impl Node {
                 if wanted == Access::Write { "write" } else { "read" }
             ))),
         }
-    }
-
-    fn authorize(&self, client: &Client, container: &str, wanted: Access) -> Result<()> {
-        self.check(client, container, wanted)
     }
 
     /// Whether `client` may access `container` with `wanted`.
@@ -1080,10 +1078,8 @@ impl Node {
     /// Create an AI/API client. Returns `(id, token)`. The token is shown
     /// once; only its hash is stored. New clients have no access at all.
     pub fn create_client(&self, name: &str) -> Result<(String, String)> {
-        let name = name.trim();
-        if name.is_empty() || name.len() > 64 {
-            return Err(Error::Invalid("name must be 1–64 characters".into()));
-        }
+        let name = valid_name(name)?;
+        let name = name.as_str();
         let id = crypto::random_id(8);
         let token = format!("uuob_{}", crypto::random_id(32));
         let info = ClientInfo {
@@ -1178,7 +1174,7 @@ impl Node {
     /// concurrent edits of different fields on two devices both survive).
     pub fn put(&self, client: &Client, container: &str, collection: &str, id: Option<&str>, value: Json) -> Result<Json> {
         crate::files::check_collection(collection)?;
-        self.authorize(client, container, Access::Write)?;
+        self.check(client, container, Access::Write)?;
         validate_key(collection)?;
         let id = match id {
             Some(i) => {
@@ -1197,14 +1193,14 @@ impl Node {
 
     pub fn get(&self, client: &Client, container: &str, collection: &str, id: &str) -> Result<Option<Json>> {
         crate::files::check_collection(collection)?;
-        self.authorize(client, container, Access::Read)?;
+        self.check(client, container, Access::Read)?;
         let doc_id = self.local_doc_id(container)?;
         self.read_doc(&doc_id, |d| Self::record_obj_json(d, collection, id))
     }
 
     pub fn delete(&self, client: &Client, container: &str, collection: &str, id: &str) -> Result<bool> {
         crate::files::check_collection(collection)?;
-        self.authorize(client, container, Access::Write)?;
+        self.check(client, container, Access::Write)?;
         let doc_id = self.local_doc_id(container)?;
         self.write_doc(&doc_id, None, |d| {
             use automerge::transaction::Transactable;
@@ -1220,7 +1216,7 @@ impl Node {
     /// All records of a collection.
     pub fn list(&self, client: &Client, container: &str, collection: &str) -> Result<Vec<Json>> {
         crate::files::check_collection(collection)?;
-        self.authorize(client, container, Access::Read)?;
+        self.check(client, container, Access::Read)?;
         let doc_id = self.local_doc_id(container)?;
         self.read_doc(&doc_id, |d| {
             let prefix = format!("{collection}/");
@@ -1324,11 +1320,7 @@ fn owner_key(data_dir: &std::path::Path) -> Result<Option<String>> {
         return Ok(Some(key.trim().to_string()));
     }
     let key = format!("uuob_owner_{}", crypto::random_id(32));
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    std::io::Write::write_all(&mut options.open(&path)?, key.as_bytes())?;
+    crypto::write_secret(&path, key.as_bytes())?;
     Ok(Some(key))
 }
 

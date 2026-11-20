@@ -119,6 +119,12 @@ example (`Upcoming.kt`, `Alert.kt` in its repository).
    `app.uuob/app.uuob.AskReceiver`. UUOB resends each allowed app its own list. (To see UUOB at all, the
    app's manifest lists the `uuob` scheme under `<queries>`, as it does anyway to open UUOB for the user.)
 
+**Is it really UUOB on the port?** While UUOB is not running, another app could listen on its port and
+collect what apps send there. So the SDK sends nothing to the port until it answers a random nonce the
+way UUOB answers it through Android: an ordered broadcast `app.uuob.PROVE` to package `app.uuob`
+(`ProveReceiver`), which only the real UUOB receives. The port gives its answer on `GET /api?prove=`
+(`uuob_api::proof`). The SDK does this by itself (`crates/uuob-sdk/android`); an app needs nothing more.
+
 ### Starting by itself
 
 UUOB only helps while it runs, so each kind of device can start it for you,

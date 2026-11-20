@@ -20,11 +20,11 @@ fn tools() -> Json {
             "container": {"type": "string", "description": "Container id, e.g. \"tasks\". An app can have several (one per list or calendar). See list_containers."},
             "collection": {"type": "string", "description": "Collection inside the container, e.g. \"tasks\" or \"events\"."}
         });
-        let mut required = vec!["container", "collection"];
+        let mut required = vec!["container".to_string(), "collection".to_string()];
         if let Json::Object(m) = extra {
             for (k, v) in m {
                 if v.get("required").and_then(Json::as_bool) == Some(true) {
-                    required.push(Box::leak(k.clone().into_boxed_str()));
+                    required.push(k.clone());
                 }
                 let mut v = v;
                 v.as_object_mut().unwrap().remove("required");

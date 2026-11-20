@@ -155,7 +155,7 @@ async fn hash_file(path: &Path) -> std::io::Result<String> {
     loop {
         let n = file.read(&mut buf).await?;
         if n == 0 {
-            return Ok(hex::encode(hash.finalize()));
+            return Ok(data_encoding::HEXLOWER.encode(&hash.finalize()));
         }
         hash.update(&buf[..n]);
     }
@@ -201,10 +201,10 @@ impl FileWriter {
         self.seal(&rest, true).await?;
         self.file.flush().await?;
         self.file.sync_all().await?;
-        let id = hex::encode(self.hash.clone().finalize());
+        let id = data_encoding::HEXLOWER.encode(&self.hash.clone().finalize());
         tokio::fs::rename(&self.tmp, path(&self.node.0.files_dir, &id)).await?;
 
-        let e = Entry { size: self.size, key: hex::encode(self.key), content_type: self.content_type.clone(), added: now_ms() };
+        let e = Entry { size: self.size, key: data_encoding::HEXLOWER.encode(&self.key), content_type: self.content_type.clone(), added: now_ms() };
         let Ok(Json::Object(fields)) = serde_json::to_value(&e) else { unreachable!("structs serialize to objects") };
         let doc_id = self.node.active_doc_id(&self.container)?;
         self.node.write_doc(&doc_id, None, |d| doc::set_record(d, &ROOT, &format!("{PREFIX}{id}"), &fields))?;
@@ -320,7 +320,7 @@ impl Node {
         end: Option<u64>,
     ) -> Result<(FileInfo, FileReader)> {
         let (doc_id, e) = self.file_entry(client, container, id, Access::Read)?;
-        let key: [u8; 32] = hex::decode(&e.key)
+        let key: [u8; 32] = data_encoding::HEXLOWER_PERMISSIVE.decode(e.key.as_bytes())
             .ok()
             .and_then(|k| k.try_into().ok())
             .ok_or_else(|| Error::Invalid("file has no usable key".into()))?;
@@ -535,6 +535,9 @@ impl Node {
             file.write_all(&buf[..n]).await?;
         }
         file.flush().await?;
+        // On disk for good before it counts as here: a storage device says
+        // so to devices that then let go of their own copy.
+        file.sync_all().await?;
         drop(file);
         if got < expected {
             // Cut off; the part stays and the next attempt continues it.

@@ -17,7 +17,6 @@ async fn main() {
         device_name: "Headless peer".into(),
         platform: "linux".into(),
         net: NetMode::Internet,
-        keystore: None,
     })
     .await
     .unwrap();

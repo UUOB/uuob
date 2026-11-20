@@ -49,6 +49,13 @@ pub async fn next_upcoming(known: String) -> String {
     on_runtime(async move { crate::next_upcoming(&known).await }).await
 }
 
+/// Proof for an app on this phone that the server on UUOB's port is this
+/// UUOB (see `uuob_api::proof`); none while the port is not ours.
+#[uniffi::export]
+pub fn prove(nonce: String) -> Option<String> {
+    uuob_api::proof(&nonce)
+}
+
 /// UUOB's version.
 #[uniffi::export]
 pub fn version() -> String {

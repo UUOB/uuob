@@ -107,5 +107,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- An app checking that the server on UUOB's port is UUOB, before it
+             sends its key there (ToApps.kt). -->
+        <receiver
+            android:name=".ProveReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="app.uuob.PROVE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

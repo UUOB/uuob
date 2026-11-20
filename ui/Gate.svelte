@@ -56,6 +56,8 @@
     } catch (e) {
       if (e.name === 'AbortError') return void (state = 'connect');
       error = e.message;
+      // Connected before (or refused): only a code from UUOB connects it now.
+      if (!withCode && e.code === 'permission_denied') useCode = true;
       // A refused code leaves the user where they typed it.
       state = e.code === 'unreachable' ? 'unreachable' : withCode ? from : 'connect';
     } finally {

@@ -52,6 +52,10 @@ impl Node {
         if *client != Client::Shell && !DATA_METHODS.contains(&method) {
             return Err(Error::PermissionDenied(format!("{method} is only available to the UUOB app itself")));
         }
+        // An AI sees only the data it was given, and changes nothing else.
+        if matches!(client, Client::Ai(_)) && matches!(method, "settings" | "set_settings" | "keep") {
+            return Err(Error::PermissionDenied(format!("{method} is only for apps")));
+        }
         // Apps default to their own container.
         let container_of = |r: &Rec| -> Result<String> {
             match (&r.container, client) {

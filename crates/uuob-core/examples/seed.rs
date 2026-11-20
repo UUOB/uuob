@@ -30,7 +30,6 @@ async fn main() {
             device_name: name.into(),
             platform: platform.into(),
             net: NetMode::Local(net.clone()),
-            keystore: None,
         })
     };
     let node = open(dir.into(), "Alex’s Laptop", "linux").await.unwrap();

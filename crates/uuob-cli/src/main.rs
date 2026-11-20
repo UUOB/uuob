@@ -414,7 +414,6 @@ async fn run(args: &[String]) -> Result<()> {
         device_name,
         platform: std::env::consts::OS.into(),
         net: NetMode::Internet,
-        keystore: None,
     })
     .await?;
     let status = node.status();

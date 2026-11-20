@@ -47,7 +47,7 @@ impl Store {
     fn init(conn: Connection, master: [u8; 32]) -> Result<Self> {
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
-             PRAGMA synchronous=NORMAL;
+             PRAGMA synchronous=FULL;
              CREATE TABLE IF NOT EXISTS docs (
                  id TEXT PRIMARY KEY,
                  wrapped_key BLOB NOT NULL,
