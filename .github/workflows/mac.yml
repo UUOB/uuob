@@ -1,4 +1,4 @@
-# Builds this repository's Mac app for Apple silicon and Intel: UUOB's native
+# Builds this repository's Mac app for Apple silicon: UUOB's native
 # app (mac/build.sh) when there is a mac/ folder, otherwise the Tauri app in
 # `app/`. The same file serves UUOB and each app that uses it.
 # Run it from the Actions tab or with `gh workflow run mac.yml`; release.sh
@@ -17,7 +17,7 @@ jobs:
         if: hashFiles('mac/build.sh') == ''
         with: { node-version: 22, cache: npm }
       - uses: dtolnay/rust-toolchain@stable
-        with: { targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+        with: { targets: "aarch64-apple-darwin" }
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
         if: hashFiles('mac/build.sh') == ''
@@ -42,8 +42,8 @@ jobs:
       - name: Build the app
         if: hashFiles('mac/build.sh') == ''
         run: |
-          bundle=target/universal-apple-darwin/release/bundle
-          (cd app && npx tauri build --target universal-apple-darwin --bundles app,dmg)
+          bundle=target/aarch64-apple-darwin/release/bundle
+          (cd app && npx tauri build --target aarch64-apple-darwin --bundles app,dmg)
           mkdir -p out
           cp "$bundle"/dmg/*.dmg out/
           (cd "$bundle/macos" && for a in *.app; do COPYFILE_DISABLE=1 tar -czf "$GITHUB_WORKSPACE/out/$a.tar.gz" "$a"; done)

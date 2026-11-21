@@ -35,12 +35,12 @@ def feed(app, name, version, dist):
     def file(suffix):
         return {"url": f"{base}-{suffix}", "signature": (dist / f"{name}-{version}-{suffix}.sig").read_text().strip()}
 
-    mac = file("mac.app.tar.gz")  # one build for Apple silicon and Intel
+    mac = file("mac.app.tar.gz")  # Apple silicon only: Intel Macs are no longer offered updates
     # No "name": Tauri's updater takes one for the version, and then can't read the feed.
     out = {
         "version": version,
         "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "platforms": {"android-aarch64": file("arm64.apk"), "darwin-aarch64": mac, "darwin-x86_64": mac},
+        "platforms": {"android-aarch64": file("arm64.apk"), "darwin-aarch64": mac},
     }
     (dist / "releases" / f"{app}.json").write_text(json.dumps(out, indent=2) + "\n")
 
@@ -57,6 +57,8 @@ def feed(app, name, version, dist):
   name "{name}"
   desc "{APPS[app][1]}"
   homepage "https://github.com/{repo}"
+
+  depends_on arch: :arm64
 
   app "{name}.app"
 end
@@ -118,7 +120,7 @@ UUOB on your other devices, whichever of them is on.
   ```
   {fdroid}
   ```
-- **Mac** (Apple silicon and Intel): open the file and drag the app to Applications. The apps are not signed
+- **Mac** (Apple silicon): open the file and drag the app to Applications. The apps are not signed
   with an Apple developer account, so the first time macOS blocks them: go to System Settings → Privacy &
   Security and choose **Open Anyway**.
 - **Mac with Homebrew**: this repo is also a tap.
