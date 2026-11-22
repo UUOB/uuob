@@ -49,6 +49,7 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) { UpdatePill() }
             .safeAreaInset(edge: .top) {
                 if let e = shell.serverError {
                     Text("\(e) Close other copies of UUOB and open it again.")
@@ -91,8 +92,49 @@ struct ContentView: View {
     }
 }
 
+/// "Update to 0.4.1", floating at the top of the window when a newer UUOB
+/// is out (ui/Update.svelte): one click downloads, checks and installs it.
+private struct UpdatePill: View {
+    @Environment(Shell.self) private var shell
+
+    var body: some View {
+        if let v = shell.update {
+            VStack(spacing: 6) {
+                Button(shell.updating ? "Updating…" : shell.updateError != nil ? "Try again" : "Update to \(v)") { shell.installUpdate() }
+                    .buttonStyle(Pill()).disabled(shell.updating)
+                    .help("Installs UUOB \(v) and restarts it")
+                if let e = shell.updateError {
+                    Text(e).font(.system(size: 13)).foregroundStyle(Look.danger).multilineTextAlignment(.center)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Look.elevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Look.lineStrong))
+                        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+                }
+            }
+            .frame(maxWidth: 420)
+            .padding(.top, 10)
+        }
+    }
+
+    /// 34 points high, on one line, blue with a shadow.
+    struct Pill: ButtonStyle {
+        @Environment(\.isEnabled) private var enabled
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, 16).frame(height: 34)
+                .background(Look.accent.opacity(configuration.isPressed ? 0.85 : 1), in: Capsule())
+                .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(enabled ? 1 : 0.7)
+                .contentShape(Capsule())
+        }
+    }
+}
+
 /// UUOB's rail: each screen an icon in a soft tile with its name under it,
-/// a dot when there is news, the Update button and the lock at the bottom.
+/// a dot when there is news, and the lock at the bottom.
 struct Rail: View {
     @Environment(Shell.self) private var shell
 
@@ -120,11 +162,6 @@ struct Rail: View {
                 .help(s.rawValue)
             }
             Spacer()
-            if let v = shell.update {
-                Button(shell.updating ? "…" : "Update") { shell.installUpdate() }
-                    .buttonStyle(UuobButton(.primary)).controlSize(.small).disabled(shell.updating)
-                    .help(shell.updateError ?? "Installs UUOB \(v) and restarts it")
-            }
             Ico("lock", size: 16).foregroundStyle(Look.text3).padding(8)
                 .help("End-to-end encrypted. Your data is stored only on your own devices.")
         }
