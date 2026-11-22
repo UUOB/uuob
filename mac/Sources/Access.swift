@@ -108,7 +108,10 @@ struct AccessView: View {
 
 /// One app, person or AI: its tile, name, kind, and what it can do.
 private struct AccessRow: View {
+    @Environment(\.compact) private var compact
     let row: J
+    /// "This device", "Pixel 9a": next to the name, or under it in a small window.
+    private var place: String? { row.kind.string != "person" && !row["where"].string.isEmpty ? row["where"].string : nil }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -121,12 +124,16 @@ private struct AccessRow: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(row.name.string).font(.system(size: 16, weight: .semibold))
+                    Text(row.name.string).font(.system(size: 16, weight: .semibold)).lineLimit(1).layoutPriority(1)
                     Text(badge).font(.system(size: 11, weight: .bold)).foregroundStyle(tint).padding(.horizontal, 7).padding(.vertical, 2)
                         .background(tint.opacity(0.16), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    if row.kind.string != "person", !row["where"].string.isEmpty {
-                        Text(row["where"].string).font(.system(size: 13)).foregroundStyle(Look.text3)
+                        .fixedSize()
+                    if let place, !compact {
+                        Text(place).font(.system(size: 13)).foregroundStyle(Look.text3).lineLimit(1)
                     }
+                }
+                if let place, compact {
+                    Text(place).font(.system(size: 13)).foregroundStyle(Look.text3).lineLimit(1)
                 }
                 Text(row.summary.string).font(.system(size: 13)).foregroundStyle(Look.text2)
             }

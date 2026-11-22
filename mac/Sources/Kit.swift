@@ -284,7 +284,7 @@ struct Segmented: View {
                 Button { selection = o.value } label: {
                     Text(o.label).font(.system(size: 14, weight: .medium)).lineLimit(1)
                         .foregroundStyle(on ? Look.text : Look.text2)
-                        .padding(.horizontal, 14).padding(.vertical, 5)
+                        .padding(.horizontal, stretch ? 6 : 14).padding(.vertical, 5)
                         .frame(maxWidth: stretch ? .infinity : nil)
                         .background(on ? Look.elevated : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .shadow(color: on ? .black.opacity(0.25) : .clear, radius: 1.5, y: 1)
