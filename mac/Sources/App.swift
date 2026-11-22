@@ -45,7 +45,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.setContentSize(NSSize(width: 1000, height: 720))
-        window.contentMinSize = NSSize(width: 760, height: 520)
+        // Small is fine: below 600 points the rail drops its names and the
+        // pages their wide margins (ContentView), and the graph scales to fit.
+        window.contentMinSize = NSSize(width: 360, height: 420)
         // Closing only hides it; showWindow brings the same window back.
         window.isReleasedWhenClosed = false
         window.center()

@@ -223,6 +223,14 @@ struct UuobButton: ButtonStyle {
 }
 
 private struct FillButtons: EnvironmentKey { static let defaultValue = false }
+private struct Compact: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The window is small (under 600 points wide): slimmer margins and rail.
+    var compact: Bool {
+        get { self[Compact.self] }
+        set { self[Compact.self] = newValue }
+    }
+}
 extension EnvironmentValues {
     var fillButtons: Bool {
         get { self[FillButtons.self] }
@@ -306,6 +314,7 @@ extension Segmented {
 /// content in a column no wider than 680 points. With `back`, a link above
 /// the title goes back.
 struct Page<Content: View, Trailing: View>: View {
+    @Environment(\.compact) private var compact
     let title: String
     var lead: String = ""
     var back: (() -> Void)? = nil
@@ -320,17 +329,17 @@ struct Page<Content: View, Trailing: View>: View {
                         .buttonStyle(UuobButton(.ghost)).padding(.leading, -18).padding(.bottom, 12)
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text(title).font(.system(size: 34, weight: .bold)).tracking(-0.85).foregroundStyle(Look.text)
+                    Text(title).font(.system(size: compact ? 28 : 34, weight: .bold)).tracking(compact ? -0.7 : -0.85).foregroundStyle(Look.text)
                     Spacer()
                     trailing
                 }
                 if !lead.isEmpty {
-                    Text(lead).font(.system(size: 17)).foregroundStyle(Look.text2).padding(.top, 10).frame(maxWidth: 560, alignment: .leading)
+                    Text(lead).font(.system(size: compact ? 15 : 17)).foregroundStyle(Look.text2).padding(.top, 10).frame(maxWidth: 560, alignment: .leading)
                 }
                 content.padding(.top, 14)
             }
             .frame(maxWidth: 680)
-            .padding(.horizontal, 32).padding(.top, 56).padding(.bottom, 48)
+            .padding(.horizontal, compact ? 16 : 32).padding(.top, 56).padding(.bottom, 48)
             .frame(maxWidth: .infinity)
         }
         .background(Look.bg)

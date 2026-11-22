@@ -13,6 +13,8 @@ struct GraphView: View {
     @State private var width: Double = 600
 
     private var nodes: [J] { graph.nodes.array }
+    /// UUOB lays the graph out for 300 points or more; narrower, it is drawn smaller.
+    private var scale: Double { graph.width.double > 0 ? min(1, width / graph.width.double) : 1 }
     /// The picked node, else this device.
     private var shown: J? { nodes.first { $0.id == picked } ?? nodes.first { $0["self"].bool } }
 
@@ -46,11 +48,13 @@ struct GraphView: View {
                     }
                 }
                 .frame(width: graph.width.double, height: graph.height.double)
+                .scaleEffect(scale, anchor: .topLeading)
+                .frame(width: graph.width.double * scale, height: graph.height.double * scale, alignment: .topLeading)
                 .frame(maxWidth: .infinity)
                 .onAppear { width = geo.size.width }
                 .onChange(of: geo.size.width) { _, w in if abs(w - width) > 20 { width = w } }
             }
-            .frame(height: graph.height.double)
+            .frame(height: graph.height.double * scale)
             .background(Look.low, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Look.line))
 

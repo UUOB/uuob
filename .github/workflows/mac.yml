@@ -39,6 +39,13 @@ jobs:
               screencapture -x "out/shot-$mode-$s.png"; kill $pid; sleep 1
             done
           done
+          # A small window (dark): the slim rail, narrow pages and the graph drawn smaller.
+          for s in network access settings; do
+            UUOB_DATA_DIR="$RUNNER_TEMP/uuob" UUOB_SCREEN=$s mac/build/UUOB.app/Contents/MacOS/UUOB & pid=$!
+            sleep 8; for k in 1 2; do osascript -e 'tell application "System Events" to key code 53' || true; sleep 1; done
+            osascript -e 'tell application "System Events" to tell process "UUOB" to set size of front window to {380, 480}' || true
+            sleep 2; screencapture -x "out/shot-small-$s.png"; kill $pid; sleep 1
+          done
       - name: Build the app
         if: hashFiles('mac/build.sh') == ''
         run: |

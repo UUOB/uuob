@@ -31,6 +31,8 @@ enum Modal: Identifiable {
 
 struct ContentView: View {
     @Environment(Shell.self) private var shell
+    /// Narrower than 600 points: a slimmer rail and pages (`compact`).
+    @State private var compact = false
 
     private var modal: Modal? {
         if let a = shell.ask { return a.kind.string == "share" ? .share(a) : .ask(a) }
@@ -40,7 +42,7 @@ struct ContentView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Rail()
+            Rail(compact: compact)
             Group {
                 switch shell.screen ?? .network {
                 case .network: NetworkView()
@@ -60,6 +62,9 @@ struct ContentView: View {
         }
         .background(Look.bg)
         .ignoresSafeArea(.container, edges: .top)
+        .frame(minWidth: 360, minHeight: 420)
+        .onGeometryChange(for: Bool.self) { $0.size.width < 600 } action: { compact = $0 }
+        .environment(\.compact, compact)
         .overlay(alignment: .bottom) {
             if let t = shell.toast {
                 // UUOB's toast: a small pill.
@@ -137,6 +142,8 @@ private struct UpdatePill: View {
 /// a dot when there is news, and the lock at the bottom.
 struct Rail: View {
     @Environment(Shell.self) private var shell
+    /// A small window: icons only, in a slimmer rail.
+    var compact = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -152,21 +159,22 @@ struct Rail: View {
                                     Circle().fill(dot).frame(width: 8, height: 8).overlay(Circle().strokeBorder(Look.elevated, lineWidth: 2)).padding(6)
                                 }
                             }
-                        Text(s.rawValue).font(.system(size: 11, weight: .semibold))
+                        if !compact { Text(s.rawValue).font(.system(size: 11, weight: .semibold)) }
                     }
                     .foregroundStyle(on ? Look.text : Look.text2)
-                    .frame(width: 76).padding(.vertical, 6)
+                    .frame(width: compact ? 52 : 76).padding(.vertical, compact ? 2 : 6)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(s.rawValue)
+                .accessibilityLabel(s.rawValue)
             }
             Spacer()
             Ico("lock", size: 16).foregroundStyle(Look.text3).padding(8)
                 .help("End-to-end encrypted. Your data is stored only on your own devices.")
         }
         .padding(.top, 44).padding(.bottom, 14)
-        .frame(width: 84)
+        .frame(width: compact ? 60 : 84)
         .frame(maxHeight: .infinity)
         .background(Look.rail)
         .overlay(alignment: .trailing) { Rectangle().fill(Look.line).frame(width: 1) }
