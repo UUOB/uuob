@@ -35,7 +35,7 @@ EOF
 # Clicks UUOB's first button whose title, description or tooltip is (or, with ~, contains) the text.
 click() {
   local r
-  r=$(osascript - "$1" <<'EOF' 2>/dev/null
+  r=$(osascript - "$1" <<'EOF' 2>>"$out/clicks.txt"
 on run argv
   set t to item 1 of argv
   set part to t starts with "~"
@@ -72,6 +72,7 @@ end run
 EOF
   )
   sleep 1.8
+  echo "$1 -> $r" >> "$out/clicks.txt"
   [ "$r" = ok ] || { echo "  no button: $1"; return 1; }
 }
 
@@ -86,6 +87,19 @@ each_mode() {
   open_on network
   shot offer; esc
   shot network
+  [ $mode = light ] && osascript >"$out/ax.txt" 2>&1 <<'EOF'
+tell application "System Events" to tell process "UUOB"
+  set out to "windows: " & (count of windows) & linefeed
+  set es to entire contents of front window
+  set out to out & "elements: " & (count of es) & linefeed
+  repeat with e in es
+    try
+      set out to out & (role of e) & " | " & (name of e as text) & " | " & (description of e as text) & linefeed
+    end try
+  end repeat
+  return out
+end tell
+EOF
   click "Add a device" && { shot add-device; esc; }
   click "Join a network" && { shot join; esc; }
   click "Rename" && { shot rename; esc; }
