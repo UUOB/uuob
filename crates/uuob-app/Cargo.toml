@@ -2,7 +2,7 @@
 name = "uuob-app"
 # UUOB's version: the Mac app (mac/build.sh), the Android app (android/app/build.gradle.kts)
 # and its updates (src/update.rs) all read it from here.
-version = "0.4.1"
+version = "0.4.2"
 edition.workspace = true
 license.workspace = true
 
