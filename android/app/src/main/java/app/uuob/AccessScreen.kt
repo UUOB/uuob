@@ -69,7 +69,8 @@ private enum class Show(val label: String, val kind: String?) { All("All", null)
 private sealed interface AddSheet {
   data object Choose : AddSheet
   data object App : AddSheet
-  data object Person : AddSheet
+  data object ShowCode : AddSheet
+  data object EnterCode : AddSheet
   data object Ai : AddSheet
 }
 
@@ -121,10 +122,11 @@ private fun AccessScreen(shell: Shell, top: @Composable () -> Unit, onOpen: (Str
   when (sheet) {
     AddSheet.Choose -> AddChooser(onClose = { sheet = null }) { sheet = it }
     AddSheet.App -> AppCode(onClose = { sheet = null; shell.tick++ })
-    AddSheet.Person -> AddPersonFlow(shell, onClose = { sheet = null })
+    AddSheet.ShowCode -> AddPersonFlow(shell, showCode = true, onClose = { sheet = null })
+    AddSheet.EnterCode -> AddPersonFlow(shell, showCode = false, onClose = { sheet = null })
     AddSheet.Ai -> Info(
       "Connect an AI on a computer",
-      "AI assistants like Claude run on a computer. Open UUOB there and choose Access → Add → An AI. You can change what it may read and write here, and it applies on all your devices.",
+      "On the computer, open UUOB and choose Access → Add → An AI.",
       onClose = { sheet = null },
     )
     null -> {}
@@ -163,7 +165,8 @@ private fun AddChooser(onClose: () -> Unit, onChoose: (AddSheet) -> Unit) {
   app.uuob.kit.DetailSheet("Add", onClose) {
     Column(Modifier.padding(top = 10.dp)) {
       Kind("apps", "An app, with a code") { onChoose(AddSheet.App) }
-      Kind("person", "A person") { onChoose(AddSheet.Person) }
+      Kind("person", "A person: show my code") { onChoose(AddSheet.ShowCode) }
+      Kind("link", "A person: enter their code") { onChoose(AddSheet.EnterCode) }
       Kind("ai", "An AI", last = true) { onChoose(AddSheet.Ai) }
     }
   }

@@ -3,6 +3,11 @@
 
 import SwiftUI
 
+extension View {
+    /// A tooltip that is also what VoiceOver reads, for buttons that are only an icon.
+    func tip(_ text: String) -> some View { help(text).accessibilityLabel(text) }
+}
+
 /// A grey line under a sheet's title.
 struct SheetLead: View {
     let text: String

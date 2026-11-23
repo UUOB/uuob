@@ -42,10 +42,10 @@ struct NetworkView: View {
                         Spacer()
                         if d.is_self.bool {
                             Button { name = d.name.string; renaming = true } label: { Ico("edit", size: 18) }
-                                .buttonStyle(IconButtonStyle()).help("Rename")
+                                .buttonStyle(IconButtonStyle()).tip("Rename")
                         } else {
                             Button(role: .destructive) { removing = d } label: { Ico("trash", size: 18) }
-                                .buttonStyle(IconButtonStyle()).help("Remove from network")
+                                .buttonStyle(IconButtonStyle()).tip("Remove from network")
                         }
                     }
                 }
@@ -118,7 +118,7 @@ struct SettingsView: View {
                     Avatar(name: me.isEmpty ? "?" : me, mine: true)
                     TwoLines(title: me.isEmpty ? "No name yet" : me, detail: "The name people you link with see")
                     Spacer()
-                    Button { naming = true } label: { Ico("edit", size: 18) }.buttonStyle(IconButtonStyle()).help("Change name")
+                    Button { naming = true } label: { Ico("edit", size: 18) }.buttonStyle(IconButtonStyle()).tip("Change name")
                 }
             }
 

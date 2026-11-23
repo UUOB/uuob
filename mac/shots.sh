@@ -55,6 +55,13 @@ on run argv
           try
             set end of ws to value of attribute "AXHelp" of e
           end try
+          try
+            repeat with c in (entire contents of e)
+              try
+                set end of ws to value of c
+              end try
+            end repeat
+          end try
           repeat with w in ws
             if w is not missing value then
               if (part and (w as text) contains t) or ((w as text) is t) then
@@ -89,19 +96,6 @@ each_mode() {
   open_on network
   shot offer; esc
   shot network
-  [ $mode = light ] && osascript >"$out/ax.txt" 2>&1 <<'EOF'
-tell application "System Events" to tell process "UUOB"
-  set out to "windows: " & (count of windows) & linefeed
-  set es to entire contents of front window
-  set out to out & "elements: " & (count of es) & linefeed
-  repeat with e in es
-    try
-      set out to out & (role of e) & " | " & (name of e as text) & " | " & (description of e as text) & linefeed
-    end try
-  end repeat
-  return out
-end tell
-EOF
   click "Add a device" && { shot add-device; esc; }
   click "Join a network" && { shot join; esc; }
   click "Rename" && { shot rename; esc; }

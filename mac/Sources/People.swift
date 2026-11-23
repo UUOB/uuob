@@ -53,7 +53,7 @@ struct PeopleView: View {
                         }
                         Spacer()
                         Button(role: .destructive) { removing = p } label: { Ico("trash", size: 18) }
-                            .buttonStyle(IconButtonStyle()).help("Remove \(p.name.string)")
+                            .buttonStyle(IconButtonStyle()).tip("Remove \(p.name.string)")
                     }
                     let receiving = p.receiving.array
                     let sharing = p.sharing.array
@@ -87,7 +87,7 @@ struct PeopleView: View {
                             Button { act("share_with", ["container": s.container.string, "person": p.id, "access": nil], toast: "Stopped sharing “\(s.name.string)” with \(p.name.string)") } label: {
                                 Ico("close", size: 16)
                             }
-                            .buttonStyle(IconButtonStyle()).help("Stop sharing")
+                            .buttonStyle(IconButtonStyle()).tip("Stop sharing")
                         }
                     }
                     if receiving.isEmpty && sharing.isEmpty {

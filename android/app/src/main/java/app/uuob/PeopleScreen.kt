@@ -274,28 +274,18 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
 
 /**
  * Linking with a person, from Access → Add: your name first if you have
- * none yet (the other person sees it), then show your code or enter theirs.
+ * none yet (the other person sees it), then your code or theirs.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPersonFlow(shell: Shell, onClose: () -> Unit) {
+fun AddPersonFlow(shell: Shell, showCode: Boolean, onClose: () -> Unit) {
   var me by remember { mutableStateOf<String?>(null) }
-  var sheet by remember { mutableStateOf<PersonSheet?>(null) }
   LaunchedEffect(Unit) { me = runCatching { Core.obj("status").optJSONObject("network")?.text("name") ?: "" }.getOrDefault("") }
   val name = me ?: return
-  when (sheet) {
-    PersonSheet.Add -> AddPerson(shell, onClose)
-    PersonSheet.Meet -> Meet(shell, onClose)
-    else -> if (name.isBlank()) NameSheet("", continues = true, onClose = onClose) { new ->
+  when {
+    name.isBlank() -> NameSheet("", continues = true, onClose = onClose) { new ->
       shell.act { Core.call("set_name", params("name" to new)); me = new.trim() }
-    } else Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-      SheetBody {
-        SheetTitle("Add a person")
-        Caption("Link with someone who has their own UUOB. Then share a list or a calendar with them from its app. They see only what you share.", Modifier.padding(top = 6.dp))
-        UButton(onClick = { sheet = PersonSheet.Add }, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Show my code") }
-        UTonal(onClick = { sheet = PersonSheet.Meet }, Modifier.fillMaxWidth().padding(top = 10.dp), large = true) { Text("Enter their code") }
-        UTonal(onClick = onClose, Modifier.fillMaxWidth().padding(top = 10.dp), large = true) { Text("Cancel") }
-      }
     }
+    showCode -> AddPerson(shell, onClose)
+    else -> Meet(shell, onClose)
   }
 }
