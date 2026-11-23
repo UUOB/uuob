@@ -88,7 +88,7 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
                 Text("  ${if (p.optBoolean("online")) "Online" else "Offline"}")
               }
             },
-            trailingContent = { IconBtn(onClick = { sheet = PersonSheet.Remove(p) }) { Ico("trash", "Remove $name") } },
+            trailingContent = { IconBtn(hint = "Remove $name", onClick = { sheet = PersonSheet.Remove(p) }) { Ico("trash", "Remove $name") } },
           )
           val receiving = p.objects("receiving")
           val sharing = p.objects("sharing")
@@ -122,7 +122,7 @@ fun PeopleScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack
                 headlineContent = { Text(s.optString("name")) },
                 supportingContent = { Text(s.optString("app_name")) },
                 trailingContent = {
-                  IconBtn(onClick = {
+                  IconBtn(hint = "Stop sharing", onClick = {
                     act("share_with", params("container" to container, "person" to p.optString("id"), "access" to null), "Stopped sharing “${s.optString("name")}” with $name")
                   }) { Ico("close", "Stop sharing") }
                 },

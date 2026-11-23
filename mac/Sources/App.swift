@@ -1,6 +1,7 @@
 // UUOB for the Mac: SwiftUI screens over the Rust core, in a window that
 // AppKit keeps, plus the menu bar icon. Closing the window keeps UUOB running
-// (apps and your other devices use it); Quit stops it.
+// (apps and your other devices use it), in the menu bar only: no Dock icon and
+// not in ⌘Tab until the window opens again. Quit stops it.
 
 import AppKit
 import SwiftUI
@@ -38,7 +39,7 @@ extension UuobCommands {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let shell = Shell()
     private var window: NSWindow?
 
@@ -59,19 +60,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
         window.center()
         window.setFrameAutosaveName("main")
+        window.delegate = self
         self.window = window
         shell.onAskHere = { [weak self] in self?.showWindow() }
         // Started at login (see Settings → Start at login) UUOB stays in the menu bar.
-        if !CommandLine.arguments.contains("--hidden") { showWindow() }
+        if CommandLine.arguments.contains("--hidden") { NSApp.setActivationPolicy(.accessory) } else { showWindow() }
         Task { await shell.run() }
     }
 
     func showWindow() {
+        // Back in the Dock and ⌘Tab while the window is open.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
 
-    // Clicking the Dock icon brings the window back.
+    // The window closed: only the menu bar icon is left.
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    // Opening UUOB again (Finder, Spotlight, the Dock while the window is open) brings the window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         if !hasVisibleWindows { showWindow() }
         return true

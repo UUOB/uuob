@@ -194,18 +194,16 @@ impl relm4::Component for App {
             navs.push((id, r, rdot));
         }
         const ENCRYPTED: &str = "End-to-end encrypted. Your data is stored only on your own devices.";
-        let lock = gtk::Box::builder().spacing(8).margin_start(10).margin_bottom(8).valign(gtk::Align::End).vexpand(true).css_classes(["lock"]).tooltip_text(ENCRYPTED).build();
+        // On the toggle's line at the bottom (the kit's footer).
+        let lock = gtk::Box::builder().spacing(8).margin_start(10).css_classes(["lock"]).tooltip_text(ENCRYPTED).build();
         lock.append(&icon("lock", 14));
         lock.append(&gtk::Label::new(Some("End-to-end encrypted")));
-        side.append(&lock);
         let rail_lock = icon("lock", 16);
         rail_lock.add_css_class("lock");
         rail_lock.set_tooltip_text(Some(ENCRYPTED));
-        rail_lock.set_valign(gtk::Align::End);
-        rail_lock.set_vexpand(true);
-        rail_lock.set_margin_bottom(8);
-        rail.append(&rail_lock);
         let scaffold = uuob_kit_gtk::SidebarScaffold::new("uuob", &side, &rail, &toasts);
+        scaffold.set_footer(&lock);
+        scaffold.set_rail_footer(&rail_lock);
         root.set_content(Some(&scaffold.widget()));
         // A page picked in the sidebar over a narrow window closes it.
         for (_, b, _) in navs.iter().step_by(2) {

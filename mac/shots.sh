@@ -141,4 +141,16 @@ for s in network access settings; do
   if [ $s = network ]; then click "Rename" && { shot rename; esc; }; fi
   quit
 done
+
+# Closing the window leaves UUOB in the menu bar only: out of the Dock and ⌘Tab
+# (ApplicationType "UIElement"), and back to "Foreground" when it opens again.
+open_on network; esc
+{ echo "open: $(lsappinfo info -only ApplicationType -app UUOB)"
+  cmd w; sleep 2
+  echo "closed: $(lsappinfo info -only ApplicationType -app UUOB)"
+  open "$1"; sleep 3   # already running: macOS asks it to reopen its window
+  echo "reopened: $(lsappinfo info -only ApplicationType -app UUOB)"; } >"$out/dock.txt" 2>&1
+shot reopened
+quit
+cat "$out/dock.txt"
 ls "$out"

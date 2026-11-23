@@ -62,7 +62,7 @@ fun AiScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: ()
             },
             headlineContent = { Text(c.optString("name"), style = MaterialTheme.typography.titleMedium) },
             supportingContent = { Text("Connected ${day(c.optLong("created_at"))}") },
-            trailingContent = { IconBtn(onClick = { removing = cid to c }) { Ico("trash", "Disconnect") } },
+            trailingContent = { IconBtn(hint = "Disconnect", onClick = { removing = cid to c }) { Ico("trash", "Disconnect") } },
           )
           apps.forEach { k ->
             Line()

@@ -112,8 +112,8 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
               }
             },
             trailingContent = {
-              if (self) IconBtn(onClick = { sheet = DeviceSheet.Rename }) { Ico("edit", "Rename") }
-              else IconBtn(onClick = { sheet = DeviceSheet.Remove(d) }) { Ico("trash", "Remove from network") }
+              if (self) IconBtn(hint = "Rename", onClick = { sheet = DeviceSheet.Rename }) { Ico("edit", "Rename") }
+              else IconBtn(hint = "Remove from network", onClick = { sheet = DeviceSheet.Remove(d) }) { Ico("trash", "Remove from network") }
             },
           )
         }
@@ -181,7 +181,7 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
           leadingContent = { Avatar(me.ifBlank { "?" }, mine = true) },
           headlineContent = { Text(me.ifBlank { "No name yet" }) },
           supportingContent = { Text("The name people you link with see") },
-          trailingContent = { IconBtn(onClick = { naming = true }) { Ico("edit", "Change name") } },
+          trailingContent = { IconBtn(hint = "Change name", onClick = { naming = true }) { Ico("edit", "Change name") } },
         )
       }
     }

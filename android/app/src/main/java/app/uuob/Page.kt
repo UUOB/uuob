@@ -82,7 +82,7 @@ fun Page(title: String, lead: String, top: @Composable () -> Unit, onBack: (() -
   ) {
     block {
       if (onBack != null) {
-        IconBtn(onClick = onBack, Modifier.padding(bottom = 8.dp).offset(x = (-8).dp)) { Ico("back", "Back", size = 24.dp) }
+        IconBtn(hint = "Back", onClick = onBack, Modifier.padding(bottom = 8.dp).offset(x = (-8).dp)) { Ico("back", "Back", size = 24.dp) }
       }
       androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
         Text(

@@ -61,6 +61,14 @@ struct ContentView: View {
                         .background(Look.dangerSoft).foregroundStyle(Look.danger)
                 }
             }
+        } footer: {
+            HStack(spacing: 8) {
+                Ico("lock", size: 14)
+                Text("End-to-end encrypted").font(.system(size: 12)).lineLimit(1)
+            }
+            .foregroundStyle(Look.text3).padding(.leading, 10).help(encrypted)
+        } railFooter: {
+            Ico("lock", size: 16).foregroundStyle(Look.text3).help(encrypted)
         }
         .background(Look.bg)
         .ignoresSafeArea(.container, edges: .top)
@@ -147,7 +155,7 @@ private struct UpdatePill: View {
 
 private let encrypted = "End-to-end encrypted. Your data is stored only on your own devices."
 
-/// The expanded sidebar: the three pages with their names, the lock at the bottom.
+/// The expanded sidebar: the three pages with their names.
 private struct SideList: View {
     @Environment(Shell.self) private var shell
     @Environment(\.uuobClosePeek) private var closePeek
@@ -160,14 +168,8 @@ private struct SideList: View {
                 }) { shell.screen = s; closePeek() }
                 .help("\(s.rawValue) (⌘\(s.number))")
             }
-            Spacer(minLength: 0)
-            HStack(spacing: 8) {
-                Ico("lock", size: 14)
-                Text("End-to-end encrypted").font(.system(size: 12))
-            }
-            .foregroundStyle(Look.text3).padding(.horizontal, 10).help(encrypted)
         }
-        .padding(.horizontal, 12).padding(.top, 52).padding(.bottom, 4)
+        .padding(.horizontal, 12).padding(.top, 52)
         .frame(maxHeight: .infinity, alignment: .top)
     }
 }
@@ -187,10 +189,8 @@ private struct RailList: View {
                     }
                 }) { shell.screen = s }
             }
-            Spacer(minLength: 0)
-            Ico("lock", size: 16).foregroundStyle(Look.text3).help(encrypted)
         }
-        .padding(.top, 52).padding(.bottom, 4)
+        .padding(.top, 52)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

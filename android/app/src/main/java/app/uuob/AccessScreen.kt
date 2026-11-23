@@ -85,7 +85,7 @@ private fun AccessScreen(shell: Shell, top: @Composable () -> Unit, onOpen: (Str
   val shown = rows.filter { show.kind == null || it.optString("kind") == show.kind }
 
   Page("Access", "", top = {
-    app.uuob.kit.PlusButton(onClick = { sheet = AddSheet.Choose }, description = "Add")
+    app.uuob.kit.PlusButton(onClick = { sheet = AddSheet.Choose }, description = "Add an app, a person or an AI (Ctrl+N or C)")
   }) {
     block {
       Choice(Show.entries.map { it.name to it.label }, show.name, Modifier.fillMaxWidth().padding(top = 20.dp)) { show = Show.valueOf(it) }

@@ -128,7 +128,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
                 }
               },
               trailingContent = {
-                IconBtn(onClick = {
+                IconBtn(hint = "Copy as JSON", onClick = {
                   shell.act {
                     val data = JSONObject()
                     for (c in g.cs) data.put(if (c.optString("id") == g.id) g.name else c.optString("name"), Core.call("export", params("container" to c.optString("id"))))
@@ -169,7 +169,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
                 headlineContent = { Text(a.optString("client_name")) },
                 supportingContent = { Text((if (a.optString("access") == "write") "Read & write" else "Read only") + if (owner) " · owner" else "") },
                 trailingContent = {
-                  if (!owner) IconBtn(onClick = {
+                  if (!owner) IconBtn(hint = "Remove access", onClick = {
                     shell.act {
                       Core.call("set_grant", params("client" to client, "app" to g.id, "access" to null))
                       shell.toast("${a.optString("client_name")} can no longer access ${g.name}")
@@ -188,7 +188,7 @@ fun AppsScreen(shell: Shell, top: @Composable () -> Unit, only: String, onBack: 
                   headlineContent = { Text(device) },
                   supportingContent = { Text("Connected ${day(copy.optLong("created_at"))}") },
                   trailingContent = {
-                    IconBtn(onClick = {
+                    IconBtn(hint = "Disconnect ${g.name} on $device", onClick = {
                       shell.act {
                         Core.call("delete_client", params("id" to id))
                         shell.toast("${g.name} on ${copy.text("device") ?: "that device"} was disconnected")

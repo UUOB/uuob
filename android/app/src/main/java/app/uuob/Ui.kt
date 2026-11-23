@@ -29,7 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -152,13 +157,16 @@ fun Btn(onClick: () -> Unit, modifier: Modifier = Modifier, kind: Kind = Kind.Pl
 @Composable fun UDanger(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, large: Boolean = false, content: @Composable RowScope.() -> Unit) =
   Btn(onClick, modifier, Kind.Danger, large, enabled, content)
 
-/** `.icon-btn`: a round 36 point button, grey until touched. */
+/** `.icon-btn`: a round 36 point button, grey until touched. `hint` shows on hover or a long press. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IconBtn(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) =
-  Box(
-    modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
-    contentAlignment = Alignment.Center,
-  ) { CompositionLocalProvider(LocalContentColor provides Look.text2) { content() } }
+fun IconBtn(hint: String, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) =
+  TooltipBox(TooltipDefaults.rememberTooltipPositionProvider(), { PlainTooltip { Text(hint) } }, rememberTooltipState()) {
+    Box(
+      modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
+      contentAlignment = Alignment.Center,
+    ) { CompositionLocalProvider(LocalContentColor provides Look.text2) { content() } }
+  }
 
 // ---------- rows ----------
 

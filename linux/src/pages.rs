@@ -209,7 +209,7 @@ pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<
             return [top, header(&name, None)].into_iter().chain(detail).collect();
         }
     }
-    let add = uuob_kit_gtk::plus_button("Add an app, a person or an AI (Ctrl+N)");
+    let add = uuob_kit_gtk::plus_button("Add an app, a person or an AI (Ctrl+N or C)");
     {
         let sender = sender.clone();
         add.connect_clicked(move |_| sender.input(Msg::Dialog(Open::Add)));
