@@ -204,9 +204,8 @@ private fun AddPerson(shell: Shell, onClose: () -> Unit) {
         linked != null -> Success("Linked with $linked", "Nothing is shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.", ::close)
         invite != null -> {
           SheetTitle("Add a person", center = true)
-          Caption("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
+          Caption("They choose Access → Add → A person: enter their code, and type this. It links you; nothing is shared yet.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 22.dp))
           CodeView(invite!!, "Waiting for them…")
-          Caption("This links the two of you. It doesn’t share anything, and it doesn’t add them to your devices.", Modifier.padding(top = 16.dp))
           UTonal(onClick = ::close, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Cancel") }
         }
         error != null -> {
@@ -248,7 +247,7 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
   Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     SheetBody {
       SheetTitle("Enter a code")
-      Caption("Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.", Modifier.padding(top = 6.dp))
+      Caption("They choose Access → Add → A person: show my code, and tell you what it says.", Modifier.padding(top = 6.dp))
       UButton(onClick = { scanning = true }, Modifier.fillMaxWidth().padding(top = 18.dp), large = true) {
         Ico("scan", null)
         Text("  Scan QR code")
@@ -256,7 +255,7 @@ private fun Meet(shell: Shell, onClose: () -> Unit) {
       Caption("or type the code", Modifier.align(Alignment.CenterHorizontally).padding(vertical = 12.dp))
       CodeField(code, { code = it }, ::meet)
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp)) }
-      Caption("Your devices and data stay your own. You see only what they share with you.", Modifier.padding(top = 14.dp))
+      Caption("You see only what they share with you.", Modifier.padding(top = 14.dp))
       Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
         UButton(onClick = { meet() }, Modifier.weight(1f), enabled = !busy && complete(code), large = true) { Text(if (busy) "Linking…" else "Link") }

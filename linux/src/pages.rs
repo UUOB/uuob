@@ -232,12 +232,16 @@ pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<
     let items = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
     for r in rows {
         let kind = s(r, "kind");
-        let badge = match kind { "app" => "App", "person" => "Person", _ => "AI" };
-        let mut sub = s(r, "summary").to_string();
+        // The name, a small coloured badge and where it runs, as on the Mac and Android.
+        let (badge, color) = match kind { "app" => ("APP", "#0A84FF"), "person" => ("PERSON", "#40C8E0"), _ => ("AI", "#BF5AF2") };
+        let mut title = format!(
+            "{}  <span size=\"x-small\" weight=\"bold\" foreground=\"{color}\" bgcolor=\"{color}\" bgalpha=\"16%\"> {badge} </span>",
+            glib::markup_escape_text(s(r, "name"))
+        );
         if !s(r, "where").is_empty() && kind != "person" {
-            sub += &format!("\n{}", s(r, "where"));
+            title += &format!("  <span size=\"small\" weight=\"normal\" alpha=\"55%\">{}</span>", glib::markup_escape_text(s(r, "where")));
         }
-        let row = adw::ActionRow::builder().title(format!("{} · {badge}", s(r, "name"))).subtitle(sub).activatable(true).build();
+        let row = adw::ActionRow::builder().title(title).use_markup(true).subtitle(glib::markup_escape_text(s(r, "summary")).as_str()).activatable(true).build();
         row.add_prefix(&match kind {
             "app" => app_tile(s(r, "id"), 40),
             "person" => avatar(s(r, "name"), 40),

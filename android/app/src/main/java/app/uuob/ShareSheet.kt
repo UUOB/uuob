@@ -110,7 +110,7 @@ fun ShareSheet(shell: Shell, ask: JSONObject) {
     SheetBody {
       if (step == "new") {
         SheetTitle("Share with someone new", center = true)
-        Caption("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 18.dp))
+        Caption("They choose Access → Add → A person: enter their code, and type this.", Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 18.dp))
         Choice(LEVELS.drop(1), access, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 22.dp)) { access = it; newInvite() }
         when {
           invite != null -> CodeView(invite!!, "Waiting for them…")
