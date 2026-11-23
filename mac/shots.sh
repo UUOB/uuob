@@ -45,7 +45,16 @@ on run argv
     repeat with e in (entire contents of front window)
       try
         if role of e is "AXButton" then
-          set ws to {name of e, description of e, help of e}
+          set ws to {}
+          try
+            set end of ws to name of e
+          end try
+          try
+            set end of ws to description of e
+          end try
+          try
+            set end of ws to value of attribute "AXHelp" of e
+          end try
           repeat with w in ws
             if w is not missing value then
               if (part and (w as text) contains t) or ((w as text) is t) then
@@ -82,6 +91,7 @@ each_mode() {
   click "Rename" && { shot rename; esc; }
   cmd k; shot palette; esc
   se 'keystroke "?"'; sleep 1.5; shot shortcuts; esc
+  se 'keystroke "c"'; sleep 1.5; shot key-c; esc
   quit
 
   # Access: the page, Add and each of its choices, and an app's and a person's details.
