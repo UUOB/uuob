@@ -190,14 +190,13 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
         Item(
           colors = clearItem(),
           headlineContent = { Text("Start when the phone turns on") },
-          supportingContent = { Text("UUOB starts in the background once you unlock the phone, so your apps and devices stay in sync.") },
           trailingContent = { Toggle(atBoot) { BootReceiver.set(ctx, it); atBoot = BootReceiver.isOn(ctx) } },
         )
         Line()
         Item(
           colors = clearItem(),
           headlineContent = { Text("Apps can connect") },
-          supportingContent = { Text(shell.serverError ?: "Only apps on this phone that you allow in Access.") },
+          supportingContent = shell.serverError?.let { e -> { Text(e) } },
           trailingContent = {
             val ok = shell.serverError == null
             Text(if (ok) "Running" else "Stopped", color = if (ok) Tint.ok else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
@@ -206,11 +205,7 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
       }
     }
     if (!alone) block {
-      val note = if (keepers > 0) {
-        val who = if (copies == 1) "a storage device has" else "$copies storage devices have"
-        "Apps with large data, like photos, can keep less on your other devices. Nothing is removed from a device until $who it."
-      } else "Turn this on for a device with plenty of space that is usually on. Apps with large data, like photos, can then keep less on your other devices."
-      Section("Storage devices", note) {
+      Section("Storage devices") {
         devices.forEachIndexed { i, d ->
           if (i > 0) Line()
           val keeper = d.optBoolean("keeper")
@@ -227,7 +222,7 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
         if (keepers > 0) Item(
           colors = clearItem(),
           headlineContent = { Text("Copies") },
-          supportingContent = { Text("Storage devices that must have something before another device frees its own copy.") },
+          supportingContent = { Text("How many storage devices keep each thing") },
           trailingContent = {
             Choice(listOf("1" to "1", "2" to "2"), copies.toString()) { n -> shell.act { Core.call("set_copies", params("copies" to n.toInt())); load() } }
           },

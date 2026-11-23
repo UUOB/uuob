@@ -129,12 +129,12 @@ struct SettingsView: View {
                         await load()
                     }
                 })) {
-                    TwoLines(title: "Start at login", detail: "UUOB starts in the menu bar when you log in, so your apps and devices stay in sync.")
+                    Text("Start at login").font(.system(size: 16, weight: .semibold))
                 }
                 Trailing {
                     Text(shell.serverError == nil ? "Running" : "Stopped").font(.system(size: 15, weight: .semibold)).foregroundStyle(shell.serverError == nil ? Look.ok : Look.danger)
                 } label: {
-                    TwoLines(title: "Apps can connect", detail: shell.serverError ?? "Only from this Mac, and only the ones you allow in Access. AI server: \(url)")
+                    TwoLines(title: "Apps can connect", detail: shell.serverError ?? "AI server: \(url)")
                 }
             }
 
@@ -160,15 +160,11 @@ struct SettingsView: View {
                                 }
                             }
                         } label: {
-                            TwoLines(title: "Copies", detail: "Storage devices that must have something before another device frees its own copy.")
+                            TwoLines(title: "Copies", detail: "How many storage devices keep each thing")
                         }
                     }
                 } header: {
                     SectionLabel("Storage devices")
-                } footer: {
-                    Text(keepers > 0
-                        ? "Apps with large data, like photos, can keep less on your other devices. Nothing is removed from a device until \(copies == 1 ? "a storage device has" : "\(copies) storage devices have") it."
-                        : "Turn this on for a device with plenty of space that is usually on. Apps with large data, like photos, can then keep less on your other devices.")
                 }
             }
 

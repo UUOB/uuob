@@ -150,13 +150,14 @@ private let encrypted = "End-to-end encrypted. Your data is stored only on your 
 /// The expanded sidebar: the three pages with their names, the lock at the bottom.
 private struct SideList: View {
     @Environment(Shell.self) private var shell
+    @Environment(\.uuobClosePeek) private var closePeek
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Screen.allCases) { s in
                 SidebarRow(title: s.rawValue, selected: (shell.screen ?? .network) == s, leading: { Ico(s.icon, size: 19) }, trailing: {
                     if let dot = screenDot(shell, s) { Circle().fill(dot).frame(width: 8, height: 8) }
-                }) { shell.screen = s }
+                }) { shell.screen = s; closePeek() }
                 .help("\(s.rawValue) (⌘\(s.number))")
             }
             Spacer(minLength: 0)

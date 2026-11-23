@@ -79,6 +79,8 @@ EOF
 open_on() {
   UUOB_DATA_DIR="$data" UUOB_SCREEN=$1 "$app" & pid=$!
   sleep 8; deny; sleep 1
+  # The same size every time (a version may remember the small window from before).
+  [ "$mode" = small ] || { se 'tell process "UUOB" to set position of front window to {12, 31}'; se 'tell process "UUOB" to set size of front window to {1000, 676}'; }
 }
 quit() { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; sleep 1; }
 

@@ -25,7 +25,7 @@ fn group(title: &str, description: &str) -> adw::PreferencesGroup {
 }
 
 fn icon_button(name: &str, tip: &str, sender: &Sender, msg: impl Fn() -> Msg + 'static) -> gtk::Button {
-    let b = gtk::Button::builder().child(&icon(name, 18)).tooltip_text(tip).valign(gtk::Align::Center).css_classes(["flat", "image-button"]).build();
+    let b = uuob_kit_gtk::icon_btn(name, 18, tip);
     let sender = sender.clone();
     b.connect_clicked(move |_| sender.input(msg()));
     b
@@ -134,14 +134,14 @@ pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
     out.push(you);
 
     let this = group("This computer", "");
-    let row = adw::SwitchRow::builder().title("Start at login").subtitle("UUOB starts in the background when you log in, so your apps and devices stay in sync.").active(d.autostart).build();
+    let row = adw::SwitchRow::builder().title("Start at login").active(d.autostart).build();
     let s2 = sender.clone();
     row.connect_active_notify(move |r| s2.input(Msg::Act("set_autostart", json!({ "on": r.is_active() }), None)));
     this.add(&row);
     let ok = d.server_error.is_none();
     let row = adw::ActionRow::builder()
         .title("Apps can connect")
-        .subtitle(d.server_error.clone().unwrap_or_else(|| format!("Only from this computer, and only the ones you allow in Access. AI server: {}", d.mcp_url)))
+        .subtitle(d.server_error.clone().unwrap_or_else(|| format!("AI server: {}", d.mcp_url)))
         .build();
     row.add_suffix(&gtk::Label::builder().label(if ok { "Running" } else { "Stopped" }).css_classes([if ok { "success" } else { "error" }]).build());
     this.add(&row);
@@ -151,13 +151,7 @@ pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
     if !alone {
         let keepers = d.devices.iter().filter(|v| v["keeper"].as_bool() == Some(true)).count();
         let copies = d.status["network"]["copies"].as_u64().unwrap_or(1);
-        let note = if keepers > 0 {
-            let who = if copies == 1 { "a storage device has".to_string() } else { format!("{copies} storage devices have") };
-            format!("Apps with large data, like photos, can keep less on your other devices. Nothing is removed from a device until {who} it.")
-        } else {
-            "Turn this on for a device with plenty of space that is usually on. Apps with large data, like photos, can then keep less on your other devices.".into()
-        };
-        let storage = group("Storage devices", &note);
+        let storage = group("Storage devices", "");
         for dev in &d.devices {
             let keeper = dev["keeper"].as_bool() == Some(true);
             let row = adw::SwitchRow::builder().title(s(dev, "name")).subtitle(if keeper { "Keeps everything" } else { "Keeps what its apps ask for" }).active(keeper).build();
@@ -167,7 +161,7 @@ pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
             storage.add(&row);
         }
         if keepers > 0 {
-            let row = adw::ActionRow::builder().title("Copies").subtitle("Storage devices that must have something before another device frees its own copy.").build();
+            let row = adw::ActionRow::builder().title("Copies").subtitle("How many storage devices keep each thing").build();
             let sender = sender.clone();
             row.add_suffix(&choice(&[("1", "1"), ("2", "2")], &copies.to_string(), move |n| {
                 sender.input(Msg::Act("set_copies", json!({ "copies": n.parse::<u64>().unwrap_or(1) }), None))

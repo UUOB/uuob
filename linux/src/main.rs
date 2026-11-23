@@ -207,6 +207,11 @@ impl relm4::Component for App {
         rail.append(&rail_lock);
         let scaffold = uuob_kit_gtk::SidebarScaffold::new("uuob", &side, &rail, &toasts);
         root.set_content(Some(&scaffold.widget()));
+        // A page picked in the sidebar over a narrow window closes it.
+        for (_, b, _) in navs.iter().step_by(2) {
+            let close = scaffold.closer();
+            b.connect_clicked(move |_| close());
+        }
         let mark = {
             let navs: Vec<(&'static str, gtk::Button)> = navs.iter().map(|(id, b, _)| (*id, b.clone())).collect();
             move |stack: &adw::ViewStack| {
