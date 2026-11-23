@@ -6,7 +6,12 @@
 # It leaves a .dmg (first install) and a .app.tar.gz (what the app's own
 # Update button installs, see crates/uuob-update).
 name: macOS app
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      before:
+        description: "Also screenshot this released version (e.g. 0.4.2), to compare"
+        required: false
 jobs:
   build:
     runs-on: macos-latest
@@ -27,25 +32,19 @@ jobs:
       - name: Screenshots of the native app
         if: hashFiles('mac/build.sh') != ''
         continue-on-error: true
+        env: { BEFORE: "${{ inputs.before }}" }
         run: |
-          # Demo data (a few apps, an AI, a person, a storage device): each screen once, light and dark.
+          [ -x mac/shots.sh ] || exit 0
+          # Demo data (a few apps, an AI, a person, a storage device, a share offer).
           cargo run -q -p uuob-core --example seed -- "$RUNNER_TEMP/uuob"
-          for mode in light dark; do
-            [ $mode = dark ] && osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true' || true
-            for s in network access settings; do
-              UUOB_DATA_DIR="$RUNNER_TEMP/uuob" UUOB_SCREEN=$s mac/build/UUOB.app/Contents/MacOS/UUOB & pid=$!
-              # Escape: "Later" for the demo's share offer, and no to the runner's local network prompt.
-              sleep 8; for k in 1 2; do osascript -e 'tell application "System Events" to key code 53' || true; sleep 1; done
-              screencapture -x "out/shot-$mode-$s.png"; kill $pid; sleep 1
-            done
-          done
-          # A small window (dark): the slim rail, narrow pages and the graph drawn smaller.
-          for s in network access settings; do
-            UUOB_DATA_DIR="$RUNNER_TEMP/uuob" UUOB_SCREEN=$s mac/build/UUOB.app/Contents/MacOS/UUOB & pid=$!
-            sleep 8; for k in 1 2; do osascript -e 'tell application "System Events" to key code 53' || true; sleep 1; done
-            osascript -e 'tell application "System Events" to tell process "UUOB" to set size of front window to {380, 480}' || true
-            sleep 2; screencapture -x "out/shot-small-$s.png"; kill $pid; sleep 1
-          done
+          cp -R "$RUNNER_TEMP/uuob" "$RUNNER_TEMP/uuob-before"
+          mac/shots.sh mac/build/UUOB.app "$RUNNER_TEMP/uuob" out/shots
+          if [ -n "$BEFORE" ]; then
+            osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to false'
+            mkdir -p "$RUNNER_TEMP/old"
+            curl -fsSL "https://github.com/jachymri/uuob-releases/releases/download/uuob-v$BEFORE/UUOB-$BEFORE-mac.app.tar.gz" | tar -xz -C "$RUNNER_TEMP/old"
+            mac/shots.sh "$RUNNER_TEMP/old/UUOB.app" "$RUNNER_TEMP/uuob-before" out/before
+          fi
       - name: Build the app
         if: hashFiles('mac/build.sh') == ''
         run: |
