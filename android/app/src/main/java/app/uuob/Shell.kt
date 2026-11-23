@@ -51,6 +51,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.remember
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +70,8 @@ class Shell(private val scope: CoroutineScope) {
   var serverError by mutableStateOf<String?>(null)
   /** Bumped on network changes, so screens reload. */
   var tick by mutableIntStateOf(0)
+  /** Add was asked for with the keyboard (Ctrl+N): Access opens its chooser. */
+  var adding by mutableStateOf(false)
   val snackbar = SnackbarHostState()
 
   fun toast(text: String) {
@@ -135,6 +139,19 @@ fun UuobApp(shell: Shell) {
   LaunchedEffect(Unit) { shell.follow() }
 
   val scheme = MaterialTheme.colorScheme
+  // The keys every UUOB app answers to, with a keyboard: Ctrl+, Settings,
+  // Ctrl+N Add (in Access), Ctrl+R Refresh, Ctrl+1–3 the tabs, Ctrl+/ the list.
+  val keys = remember {
+    app.uuob.kit.Shortcuts(
+      settings = { screen = Screen.Settings },
+      new = "Add" to { screen = Screen.Access; shell.adding = true },
+      refresh = { shell.tick++ },
+      extra = Screen.entries.mapIndexed { i, s ->
+        app.uuob.kit.Shortcuts.Extra(s.title, "Ctrl+${i + 1}", listOf(Key.One, Key.Two, Key.Three)[i], ctrl = true) { screen = s }
+      },
+    )
+  }
+  app.uuob.kit.ShortcutsHost(keys) {
   Column(Modifier.fillMaxSize().background(scheme.background)) {
     Box(Modifier.weight(1f)) {
       Column(Modifier.fillMaxSize()) {
@@ -189,6 +206,7 @@ fun UuobApp(shell: Shell) {
         }
       }
     }
+  }
   }
 
   val ask = shell.asks.firstOrNull()

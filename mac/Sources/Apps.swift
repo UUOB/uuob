@@ -200,10 +200,8 @@ struct AppCodeSheet: View {
     @State private var code: J?
 
     var body: some View {
-        SheetFrame(title: "Connect with a code", lead: "Type this code into the app. It also works in an app on a device that has no UUOB.", center: true) {
-            if let code { CodeView(invite: code, waiting: "Works once.", qr: false).padding(.vertical, 8) } else { ProgressView() }
-        } buttons: {
-            Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+        CodeCard(title: "Connect with a code", lead: "Type it into the app. It also works on a device without UUOB.", onClose: { dismiss() }) {
+            if let code { CodeView(invite: code, waiting: "Works once.", qr: false) } else { ProgressView() }
         }
         .task { code = try? await Core.call("create_app_code") }
     }

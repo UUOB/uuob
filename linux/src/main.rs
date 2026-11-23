@@ -117,8 +117,7 @@ pub struct Widgets {
     banner: adw::Banner,
     update: gtk::Button,
     pages: [adw::PreferencesPage; 3],
-    /// The rail's buttons (beside the pages, or under them when narrow): the
-    /// screen each opens, the button, its dot.
+    /// The sidebar's and the rail's buttons: the screen each opens, the button, its dot.
     navs: Vec<(&'static str, gtk::Button, gtk::Box)>,
     groups: Vec<(usize, adw::PreferencesGroup)>,
     stack: adw::ViewStack,
@@ -166,44 +165,91 @@ impl relm4::Component for App {
         content.append(&banner);
         content.append(&stack);
         stack.set_vexpand(true);
-        content.set_hexpand(true);
+        let view = adw::ToolbarView::new();
+        view.add_top_bar(&header);
+        view.set_content(Some(&content));
+        toasts.set_child(Some(&view));
 
-        // UUOB's rail, as its screens always had: each screen an icon in a soft
-        // tile with its name under it, the lock at the bottom. On a phone or
-        // a small window it becomes a bar under the pages.
+        // The sidebar every UUOB app has (the kit's): the pages with their
+        // names, folding to a rail of icons below 600 wide or with its toggle.
         let mut navs = Vec::new();
-        let side = rail(&stack, gtk::Orientation::Vertical, &mut navs);
-        let bottom = rail(&stack, gtk::Orientation::Horizontal, &mut navs);
-        bottom.set_visible(false);
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        row.append(&side);
-        row.append(&content);
-        row.set_vexpand(true);
-        let all = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        all.append(&row);
-        all.append(&bottom);
-        toasts.set_child(Some(&all));
+        let side = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(2).margin_top(14).margin_start(12).margin_end(12).vexpand(true).build();
+        let rail = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(6).margin_top(14).vexpand(true).build();
+        for (n, (id, title, glyph)) in [("network", "Network", "network"), ("access", "Access", "shield"), ("settings", "Settings", "settings")].into_iter().enumerate() {
+            let dot = gtk::Box::builder().css_classes(["navdot"]).valign(gtk::Align::Center).visible(false).build();
+            let b = uuob_kit_gtk::sidebar_row(Some(&icon(glyph, 19)), title, Some(dot.upcast_ref()), false);
+            let mark = gtk::Overlay::builder().child(&icon(glyph, 20)).build();
+            let rdot = gtk::Box::builder().css_classes(["navdot"]).halign(gtk::Align::End).valign(gtk::Align::Start).visible(false).build();
+            mark.add_overlay(&rdot);
+            let tip = format!("{title} (Ctrl+{})", n + 1);
+            let r = uuob_kit_gtk::rail_button(&mark, &tip, false);
+            b.set_tooltip_text(Some(&tip));
+            for button in [&b, &r] {
+                let stack = stack.clone();
+                button.connect_clicked(move |_| stack.set_visible_child_name(id));
+            }
+            side.append(&b);
+            rail.append(&r);
+            navs.push((id, b, dot));
+            navs.push((id, r, rdot));
+        }
+        const ENCRYPTED: &str = "End-to-end encrypted. Your data is stored only on your own devices.";
+        let lock = gtk::Box::builder().spacing(8).margin_start(10).margin_bottom(8).valign(gtk::Align::End).vexpand(true).css_classes(["lock"]).tooltip_text(ENCRYPTED).build();
+        lock.append(&icon("lock", 14));
+        lock.append(&gtk::Label::new(Some("End-to-end encrypted")));
+        side.append(&lock);
+        let rail_lock = icon("lock", 16);
+        rail_lock.add_css_class("lock");
+        rail_lock.set_tooltip_text(Some(ENCRYPTED));
+        rail_lock.set_valign(gtk::Align::End);
+        rail_lock.set_vexpand(true);
+        rail_lock.set_margin_bottom(8);
+        rail.append(&rail_lock);
+        let scaffold = uuob_kit_gtk::SidebarScaffold::new("uuob", &side, &rail, &toasts);
+        root.set_content(Some(&scaffold.widget()));
         let mark = {
             let navs: Vec<(&'static str, gtk::Button)> = navs.iter().map(|(id, b, _)| (*id, b.clone())).collect();
             move |stack: &adw::ViewStack| {
                 let on = stack.visible_child_name().unwrap_or_default();
                 for (id, b) in &navs {
-                    if on == *id { b.add_css_class("on") } else { b.remove_css_class("on") }
+                    if on == *id { b.add_css_class("selected") } else { b.remove_css_class("selected") }
                 }
             }
         };
         mark(&stack);
         stack.connect_visible_child_name_notify(mark);
 
-        let view = adw::ToolbarView::new();
-        view.add_top_bar(&header);
-        view.set_content(Some(&toasts));
-        root.set_content(Some(&view));
-
-        let narrow = adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 550sp").expect("condition"));
-        narrow.add_setter(&side, "visible", Some(&false.to_value()));
-        narrow.add_setter(&bottom, "visible", Some(&true.to_value()));
-        root.add_breakpoint(narrow);
+        // The keys every UUOB app answers to: Ctrl+, Settings, Ctrl+N Add (in
+        // Access), Ctrl+Alt+S the sidebar, Ctrl+R Refresh, Ctrl+1–3 the pages.
+        let go = {
+            let stack = stack.clone();
+            move |id: &'static str| -> std::rc::Rc<dyn Fn()> {
+                let stack = stack.clone();
+                std::rc::Rc::new(move || stack.set_visible_child_name(id))
+            }
+        };
+        uuob_kit_gtk::Shortcuts {
+            settings: Some(go("settings")),
+            new: Some(("Add".into(), {
+                let (stack, sender) = (stack.clone(), sender.clone());
+                std::rc::Rc::new(move || {
+                    stack.set_visible_child_name("access");
+                    sender.input(Msg::Dialog(dialogs::Open::Add));
+                })
+            })),
+            find: None,
+            toggle_sidebar: Some(scaffold.toggler()),
+            refresh: Some({
+                let sender = sender.clone();
+                std::rc::Rc::new(move || sender.input(Msg::Reload))
+            }),
+            extra: vec![
+                ("Network".into(), "<Control>1".into(), go("network")),
+                ("Access".into(), "<Control>2".into(), go("access")),
+                ("Settings".into(), "<Control>3".into(), go("settings")),
+            ],
+        }
+        .install(root.upcast_ref());
 
         // Closing the window keeps UUOB running; opening UUOB again shows it.
         root.set_hide_on_close(true);
@@ -217,6 +263,11 @@ impl relm4::Component for App {
         quit.connect_activate(|_, _| relm4::main_application().quit());
         app.add_action(&quit);
         app.set_accels_for_action("app.quit", &["<Ctrl>q"]);
+        // Nothing focused at the start: no ring around the first sidebar row.
+        glib::idle_add_local_once({
+            let root = root.clone();
+            move || gtk::prelude::GtkWindowExt::set_focus(&root, None::<&gtk::Widget>)
+        });
         if std::env::args().any(|a| a == "--hidden") {
             let root = root.clone();
             glib::idle_add_local_once(move || root.set_visible(false));
@@ -424,44 +475,10 @@ impl App {
 
 mod pages;
 
-/// The rail: a button per screen (an icon in a tile, its name under it), and
-/// the lock at the end when it stands beside the pages.
-fn rail(stack: &adw::ViewStack, orientation: gtk::Orientation, navs: &mut Vec<(&'static str, gtk::Button, gtk::Box)>) -> gtk::Box {
-    let vertical = orientation == gtk::Orientation::Vertical;
-    let bar = gtk::Box::builder().orientation(orientation).spacing(4).css_classes(if vertical { vec!["rail"] } else { vec!["rail", "bottom"] }).build();
-    if vertical {
-        bar.set_width_request(84);
-    } else {
-        bar.set_homogeneous(true);
-    }
-    for (id, title, glyph) in [("network", "Network", "network"), ("access", "Access", "shield"), ("settings", "Settings", "settings")] {
-        let tile = gtk::Overlay::builder().css_classes(["navtile"]).halign(gtk::Align::Center).width_request(40).height_request(40).build();
-        tile.set_child(Some(&icon(glyph, 20)));
-        let dot = gtk::Box::builder().css_classes(["navdot"]).halign(gtk::Align::End).valign(gtk::Align::Start).visible(false).build();
-        tile.add_overlay(&dot);
-        let inside = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(4).build();
-        inside.append(&tile);
-        inside.append(&gtk::Label::builder().label(title).css_classes(["navlabel"]).build());
-        let b = gtk::Button::builder().child(&inside).css_classes(["nav"]).tooltip_text(title).build();
-        let stack = stack.clone();
-        b.connect_clicked(move |_| stack.set_visible_child_name(id));
-        bar.append(&b);
-        navs.push((id, b, dot));
-    }
-    if vertical {
-        let spacer = gtk::Box::builder().vexpand(true).build();
-        bar.append(&spacer);
-        let lock = icon("lock", 16);
-        lock.add_css_class("lock");
-        lock.set_tooltip_text(Some("End-to-end encrypted. Your data is stored only on your own devices."));
-        bar.append(&lock);
-    }
-    bar
-}
-
-/// How wide the graph is drawn in a window this wide (pages are at most about 600 wide).
+/// How wide the graph is drawn in a window this wide: less the sidebar (240,
+/// or the 64 rail below 600) and the page's sides; pages are at most about 600 wide.
 fn graph_width(window: i32) -> f64 {
-    (window as f64 - 48.0 - if window > 550 { 84.0 } else { 0.0 }).clamp(300.0, 600.0)
+    (window as f64 - 48.0 - if window >= 600 { 240.0 } else { 64.0 }).clamp(300.0, 600.0)
 }
 
 fn main() {

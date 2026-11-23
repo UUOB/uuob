@@ -3,7 +3,7 @@
 //! with what the four pages before them showed for it.
 
 use relm4::adw::prelude::*;
-use relm4::{ComponentSender, adw, gtk};
+use relm4::{ComponentSender, adw, gtk, gtk::glib};
 use serde_json::{Value, json};
 
 use crate::dialogs::Open;
@@ -61,21 +61,19 @@ fn platform(p: &str) -> &str {
     }
 }
 
-/// A page's top: its large title and a grey line about it.
-pub fn header(title: &str, lead: &str) -> adw::PreferencesGroup {
+/// A page's top: the kit's toolbar, its large title and maybe the round +.
+pub fn header(title: &str, add: Option<&gtk::Button>) -> adw::PreferencesGroup {
     let g = adw::PreferencesGroup::new();
-    let b = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(10).margin_top(24).margin_bottom(4).build();
-    b.append(&gtk::Label::builder().label(title).css_classes(["large-title"]).xalign(0.0).build());
-    if !lead.is_empty() {
-        b.append(&gtk::Label::builder().label(lead).css_classes(["lead"]).xalign(0.0).wrap(true).build());
-    }
-    g.add(&b);
+    let (bar, _) = uuob_kit_gtk::toolbar(&glib::markup_escape_text(title), false, &[], add);
+    bar.set_margin_top(24);
+    bar.set_margin_bottom(0);
+    g.add(&bar);
     g
 }
 
 /// Network: the graph, what is picked in it, then your devices.
 pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = vec![header("Network", "Your devices in the middle, each app on the device it runs on, people at the edge.")];
+    let mut out = vec![header("Network", None)];
     let top = group("", "");
     if d.graph["nodes"].is_array() {
         top.add(&crate::graph::graph(&d.graph, picked, sender));
@@ -125,7 +123,7 @@ pub fn network(d: &Data, picked: Option<&str>, sender: &Sender) -> Vec<adw::Pref
 
 /// Settings: your name, this computer, storage, updates, leaving the network.
 pub fn settings(d: &Data, sender: &Sender) -> Vec<adw::PreferencesGroup> {
-    let mut out = vec![header("Settings", "This computer, your storage and updates.")];
+    let mut out = vec![header("Settings", None)];
     let me = s(&d.status["network"], "name").to_string();
     let you = group("You", "");
     let row = adw::ActionRow::builder().title(if me.is_empty() { "No name yet" } else { &me }).subtitle("The name people you link with see").build();
@@ -214,24 +212,28 @@ pub fn access(d: &Data, open: Option<&str>, show: &str, sender: &Sender) -> Vec<
             let top = adw::PreferencesGroup::new();
             top.add(&back);
             let name = d.access.iter().find(|r| s(r, "key") == key).map(|r| s(r, "name").to_string()).unwrap_or_default();
-            return [top, header(&name, "")].into_iter().chain(detail).collect();
+            return [top, header(&name, None)].into_iter().chain(detail).collect();
         }
     }
-    let top = header("Access", "Everything that can reach your data, and what each one can read or write.");
+    let add = uuob_kit_gtk::plus_button("Add an app, a person or an AI (Ctrl+N)");
+    {
+        let sender = sender.clone();
+        add.connect_clicked(move |_| sender.input(Msg::Dialog(Open::Add)));
+    }
+    let top = header("Access", Some(&add));
     let list = group("", "");
-    let head = gtk::Box::builder().spacing(12).build();
     let s2 = sender.clone();
-    head.append(&choice(&[("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], show, move |v| s2.input(Msg::Filter(v))));
-    let add = button("Add…", &["suggested-action", "pill"], sender, || Msg::Dialog(Open::Add));
-    add.set_hexpand(true);
-    add.set_halign(gtk::Align::End);
-    head.append(&add);
-    head.set_margin_bottom(12);
-    list.add(&head);
+    let filter = choice(&[("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], show, move |v| s2.input(Msg::Filter(v)));
+    filter.set_homogeneous(true);
+    filter.add_css_class("stretch");
+    filter.set_margin_bottom(12);
+    list.add(&filter);
     let rows: Vec<&Value> = d.access.iter().filter(|r| show == "all" || s(r, "kind") == show).collect();
     if d.access.is_empty() {
-        list.add(&adw::StatusPage::builder().icon_name("security-high-symbolic").title("Nothing has access yet")
-            .description("Install an app that works with UUOB and open it: it asks to connect. You can also link with a person or connect an AI with Add.").build());
+        let add = uuob_kit_gtk::btn("Add", None, &["primary"]);
+        let sender = sender.clone();
+        add.connect_clicked(move |_| sender.input(Msg::Dialog(Open::Add)));
+        list.add(&uuob_kit_gtk::empty_state("shield", "Nothing has access yet", "text3", Some(&add)));
     }
     let items = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
     for r in rows {

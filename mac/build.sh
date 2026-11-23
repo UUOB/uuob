@@ -18,11 +18,13 @@ install_name_tool -id @rpath/libuuob_app.dylib "$build/libuuob_app.dylib"
 cargo run -q -p uuob-app --features bindgen --bin uniffi-bindgen -- \
   generate --library target/aarch64-apple-darwin/release/libuuob_app.dylib --language swift --out-dir "$gen"
 
-# 3. The app, for Apple silicon.
+# 3. The app, for Apple silicon, with the look every UUOB app shares: the
+#    kit's screens, frames and shortcuts (sdk/kit/mac), not its client.
 for arch in arm64; do
   swiftc -O -parse-as-library -swift-version 5 -target "$arch-apple-macos14.0" -module-name UUOB \
     -I "$gen" -Xcc -fmodule-map-file="$gen/UuobCoreFFI.modulemap" \
     mac/Sources/*.swift "$gen/UuobCore.swift" \
+    sdk/kit/mac/Web.swift sdk/kit/mac/Scaffold.swift sdk/kit/mac/Shortcuts.swift \
     -L "$build" -luuob_app -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
     -o "$build/UUOB-$arch"
 done

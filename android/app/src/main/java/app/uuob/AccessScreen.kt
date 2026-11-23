@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import org.json.JSONObject
 
@@ -79,19 +80,17 @@ private fun AccessScreen(shell: Shell, top: @Composable () -> Unit, onOpen: (Str
   var show by rememberSaveable { mutableStateOf(Show.All) }
   var sheet by remember { mutableStateOf<AddSheet?>(null) }
   LaunchedEffect(shell.tick, shell.people) { runCatching { rows = Core.list("access") } }
+  LaunchedEffect(shell.adding) { if (shell.adding) { shell.adding = false; sheet = AddSheet.Choose } }
   val shown = rows.filter { show.kind == null || it.optString("kind") == show.kind }
 
-  Page("Access", "Everything that can reach your data, and what each one can read or write.", top = {
-    UButton(onClick = { sheet = AddSheet.Choose }) {
-      Ico("plus", null, size = 18.dp, stroke = 2.2f)
-      Text("Add")
-    }
+  Page("Access", "", top = {
+    app.uuob.kit.PlusButton(onClick = { sheet = AddSheet.Choose }, description = "Add")
   }) {
     block {
       Choice(Show.entries.map { it.name to it.label }, show.name, Modifier.fillMaxWidth().padding(top = 20.dp)) { show = Show.valueOf(it) }
     }
     if (rows.isEmpty()) block {
-      Empty("shield", "Nothing has access yet", "Install an app like Tasks or Calendar and open it: it asks to connect. You can also link with a person or connect an AI with Add.")
+      app.uuob.kit.EmptyState("shield", "Nothing has access yet", action = "Add" to { sheet = AddSheet.Choose })
     } else if (shown.isNotEmpty()) block {
       Section {
         shown.forEachIndexed { i, r ->
@@ -161,43 +160,28 @@ private fun Badge(kind: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddChooser(onClose: () -> Unit, onChoose: (AddSheet) -> Unit) {
-  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-    SheetBody {
-      SheetTitle("What are you adding?")
-      Spacer(Modifier.height(16.dp))
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Kind("apps", Tint.apps[0], "An app", "An app on one of your devices, or on a device without UUOB.") { onChoose(AddSheet.App) }
-        Kind("person", Tint.apps[6], "A person", "Someone with their own UUOB. You choose what to share.") { onChoose(AddSheet.Person) }
-        Kind("ai", Tint.apps[4], "An AI", "An assistant that sees only what you pick.") { onChoose(AddSheet.Ai) }
-      }
-      UTonal(onClick = onClose, Modifier.fillMaxWidth().padding(top = 16.dp), large = true) { Text("Cancel") }
+  app.uuob.kit.DetailSheet("Add", onClose) {
+    Column(Modifier.padding(top = 10.dp)) {
+      Kind("apps", "An app, with a code") { onChoose(AddSheet.App) }
+      Kind("person", "A person") { onChoose(AddSheet.Person) }
+      Kind("ai", "An AI", last = true) { onChoose(AddSheet.Ai) }
     }
   }
 }
 
+/** A choice in Add: an icon row with a chevron. */
 @Composable
-private fun Kind(icon: String, color: Color, title: String, text: String, onClick: () -> Unit) =
-  Card(onClick = onClick, Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-      Box(Modifier.size(44.dp).clip(if (title == "A person") CircleShape else RoundedCornerShape(12.dp)).background(color), contentAlignment = Alignment.Center) {
-        Ico(icon, null, tint = Color.White)
-      }
-      Column(Modifier.padding(start = 14.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Caption(text)
-      }
-    }
+private fun Kind(icon: String, title: String, last: Boolean = false, onClick: () -> Unit) =
+  app.uuob.kit.IconRow(icon, Modifier.clickable(onClick = onClick), last = last) {
+    Text(title, Modifier.weight(1f), fontSize = 15.sp)
+    Ico("chevron", null, size = 16.dp, tint = Look.text3)
   }
 
 /** A title, a paragraph and Done. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Info(title: String, text: String, onClose: () -> Unit) {
-  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-    SheetBody {
-      SheetTitle(title)
-      Caption(text, Modifier.padding(top = 6.dp))
-      UButton(onClick = onClose, Modifier.fillMaxWidth().padding(top = 20.dp), large = true) { Text("Done") }
-    }
+  app.uuob.kit.DetailSheet(title, onClose) {
+    Caption(text, Modifier.padding(top = 6.dp))
   }
 }

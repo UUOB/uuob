@@ -37,6 +37,9 @@ android {
     }
     // Only the core's library for the phone it is built for (build.sh).
     packaging { jniLibs { useLegacyPackaging = false } }
+    // The look and frames every UUOB app shares: the kit in the SDK (sdk/, a
+    // submodule), its part that doesn't need the apps' client.
+    sourceSets["main"].kotlin.srcDir("../../sdk/kit/android/ui/src")
 }
 
 dependencies {

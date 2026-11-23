@@ -150,31 +150,9 @@ fun Avatar(name: String?, size: Dp = 44.dp, mine: Boolean = false) =
  *  with the chosen one raised on it. */
 @Composable
 fun Choice(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
-  val scheme = MaterialTheme.colorScheme
-  val raised = Look.elevated
-  // Stretched across when the caller gives it a width, else as wide as its labels.
-  val stretch = modifier != Modifier
-  Row(
-    modifier.clip(RoundedCornerShape(10.dp)).background(scheme.surfaceContainerHigh).padding(3.dp).height(IntrinsicSize.Min),
-    horizontalArrangement = Arrangement.spacedBy(2.dp),
-  ) {
-    options.forEach { (value, label) ->
-      val on = value == selected
-      Box(
-        Modifier.then(if (stretch) Modifier.weight(1f) else Modifier).widthIn(min = 44.dp).fillMaxHeight()
-          .then(if (on) Modifier.shadow(1.dp, RoundedCornerShape(8.dp)) else Modifier)
-          .clip(RoundedCornerShape(8.dp)).background(if (on) raised else Color.Transparent)
-          .selectable(selected = on, onClick = { onSelect(value) }, role = androidx.compose.ui.semantics.Role.Tab)
-          .padding(horizontal = 14.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center,
-      ) {
-        Text(
-          label, maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-          style = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = if (on) scheme.onSurface else Look.text2,
-        )
-      }
-    }
-  }
+  // The kit's segmented control; stretched across (evenly, little padding) when the caller gives it a width.
+  val at = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
+  app.uuob.kit.Segmented(options.map { it.second }, at, modifier, fill = modifier != Modifier) { onSelect(options[it].first) }
 }
 
 /** A QR code of `text`, black on white so any camera reads it. */
@@ -211,7 +189,7 @@ fun CodeView(invite: JSONObject, waiting: String, qr: Boolean = true) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       code.split("-").forEachIndexed { i, part ->
         Surface(
-          color = if (i == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+          color = if (i == 0) MaterialTheme.colorScheme.primaryContainer else app.uuob.kit.Tokens.surface2,
           contentColor = if (i == 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
           shape = RoundedCornerShape(14.dp),
         ) {
@@ -259,10 +237,10 @@ fun Confirm(title: String, text: String, action: String, onConfirm: () -> Unit, 
     }
   }
 
-/** The content of a sheet: 28 points of room on every side; it scrolls if long. */
+/** The content of a sheet: 22 points of room on every side (the kit's sheets); it scrolls if long. */
 @Composable
 fun SheetBody(content: @Composable ColumnScope.() -> Unit) =
-  Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp), content = content)
+  Column(Modifier.fillMaxWidth().padding(22.dp), content = content)
 
 @Composable
 fun SheetTitle(text: String, center: Boolean = false) =

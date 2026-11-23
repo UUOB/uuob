@@ -16,17 +16,24 @@ struct UUOBApp: App {
             Button("Quit UUOB") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
         .commands {
-            // Every screen from the menu bar and the keyboard: Go → Network (⌘1) …
-            CommandMenu("Go") {
-                ForEach(Array(Screen.allCases.enumerated()), id: \.element) { i, s in
-                    Button(s.rawValue) {
-                        delegate.shell.screen = s
-                        delegate.showWindow()
-                    }
-                    .keyboardShortcut(KeyEquivalent(Character(String(i + 1))))
-                }
-            }
+            // The keys every UUOB app answers to (the kit's UuobCommands), and Go → Network (⌘1) …
+            UuobCommands.uuob(delegate.shell) { delegate.showWindow() }
         }
+    }
+}
+
+extension UuobCommands {
+    /// UUOB's: ⌘, Settings, ⌘N Add (in Access), ⌘R Refresh, ⌘1–3 the pages.
+    @MainActor static func uuob(_ shell: Shell, show: @escaping () -> Void = {}) -> UuobCommands {
+        func go(_ s: Screen) { shell.screen = s; show() }
+        return UuobCommands(
+            settings: { go(.settings) },
+            new: { go(.access); shell.adding = true },
+            newTitle: "Add",
+            refresh: { shell.tick += 1 },
+            extra: Screen.allCases.enumerated().map { i, s in
+                Shortcut(title: s.rawValue, key: KeyEquivalent(Character(String(i + 1)))) { go(s) }
+            })
     }
 }
 
@@ -86,6 +93,8 @@ final class Shell {
     var serverError: String?
     /// The screen in the window. UUOB_SCREEN=access opens on that one (the screenshots in mac.yml).
     var screen: Screen? = Screen.allCases.first { "\($0)" == ProcessInfo.processInfo.environment["UUOB_SCREEN"] } ?? .network
+    /// Add was asked for from the menu (⌘N): Access opens its chooser.
+    var adding = false
     /// Bumped on network changes, so screens reload.
     var tick = 0
     /// The latest change, for a screen waiting for one (a device joining).

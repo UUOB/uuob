@@ -84,7 +84,7 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
   val alone = devices.size <= 1
   val me = devices.firstOrNull { it.optBoolean("is_self") }
 
-  Page("Network", "Your devices in the middle, each app on the device it runs on, people at the edge.", top) {
+  Page("Network", "", top) {
     block { Graph(shell, devices) }
     block {
       Section("Devices") {
@@ -94,7 +94,7 @@ fun NetworkScreen(shell: Shell, top: @Composable () -> Unit) {
           Item(
             colors = clearItem(),
             leadingContent = {
-              Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+              Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(app.uuob.kit.Tokens.surface2), contentAlignment = Alignment.Center) {
                 Ico(if (d.optString("platform") in setOf("android", "ios")) "phone" else "laptop", null, size = 24.dp, tint = Look.text2)
               }
             },
@@ -173,7 +173,7 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
   val alone = devices.size <= 1
   val keepers = devices.count { it.optBoolean("keeper") }
 
-  Page("Settings", "This phone and your storage.", top) {
+  Page("Settings", "", top) {
     block {
       Section("You") {
         Item(
@@ -260,16 +260,8 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
 @Composable
 private fun Rename(current: String, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
-  Sheet(onDismissRequest = onClose) {
-    SheetBody {
-      SheetTitle("This device’s name")
-      Field(name, { name = it }, Modifier.padding(top = 18.dp))
-      Actions {
-        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
-        UButton(onClick = { onSave(name) }, Modifier.weight(1f), enabled = name.isNotBlank(), large = true) { Text("Save") }
-      }
-    }
-  }
+  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Device name", canSave = name.isNotBlank(), onCancel = onClose, onSave = { onSave(name) },
+    under = { Caption("This device, as your other devices see it") }) {}
 }
 
 /** A code (and QR code) for a new device, until it joins. */

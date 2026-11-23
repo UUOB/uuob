@@ -8,7 +8,9 @@ import SwiftUI
 enum Screen: String, CaseIterable, Identifiable, Hashable {
     case network = "Network", access = "Access", settings = "Settings"
     var id: Self { self }
-    /// Its line icon (Kit.swift).
+    /// Its key with ⌘ (Go → Network ⌘1 …).
+    var number: Int { (Self.allCases.firstIndex(of: self) ?? 0) + 1 }
+    /// Its line icon (the kit's `Ico`).
     var icon: String {
         switch self {
         case .network: "network"
@@ -31,9 +33,6 @@ enum Modal: Identifiable {
 
 struct ContentView: View {
     @Environment(Shell.self) private var shell
-    /// Narrower than 600 points: a slimmer rail and pages (`compact`).
-    @State private var compact = false
-
     private var modal: Modal? {
         if let a = shell.ask { return a.kind.string == "share" ? .share(a) : .ask(a) }
         if let o = shell.offer { return .offer(o.share, person: o.person) }
@@ -41,8 +40,11 @@ struct ContentView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Rail(compact: compact)
+        SidebarScaffold {
+            SideList()
+        } rail: {
+            RailList()
+        } content: {
             Group {
                 switch shell.screen ?? .network {
                 case .network: NetworkView()
@@ -63,8 +65,8 @@ struct ContentView: View {
         .background(Look.bg)
         .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 360, minHeight: 420)
-        .onGeometryChange(for: Bool.self) { $0.size.width < 600 } action: { compact = $0 }
-        .environment(\.compact, compact)
+        // The shared keys: the palette (⌘K), the list (⌘?), C to add, ? (the kit's).
+        .uuobKeys(UuobCommands.uuob(shell))
         .overlay(alignment: .bottom) {
             if let t = shell.toast {
                 // UUOB's toast: a small pill.
@@ -91,10 +93,6 @@ struct ContentView: View {
         }
     }
 
-    private func badge(_ s: Screen) -> Int {
-        if s == .access { return shell.offers.count + shell.asks.count }
-        return 0
-    }
 }
 
 /// "Update to 0.4.1", floating at the top of the window when a newer UUOB
@@ -138,54 +136,61 @@ private struct UpdatePill: View {
     }
 }
 
-/// UUOB's rail: each screen an icon in a soft tile with its name under it,
-/// a dot when there is news, and the lock at the bottom.
-struct Rail: View {
+/// The dot on a page's icon: devices online (green) or not, something to answer in Access.
+func screenDot(_ shell: Shell, _ s: Screen) -> Color? {
+    switch s {
+    case .network where shell.status.devices_total.int > 1: shell.status.devices_online.int > 1 ? Look.ok : Look.text3
+    case .access where !shell.asks.isEmpty || !shell.offers.isEmpty: Look.warn
+    default: nil
+    }
+}
+
+private let encrypted = "End-to-end encrypted. Your data is stored only on your own devices."
+
+/// The expanded sidebar: the three pages with their names, the lock at the bottom.
+private struct SideList: View {
     @Environment(Shell.self) private var shell
-    /// A small window: icons only, in a slimmer rail.
-    var compact = false
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             ForEach(Screen.allCases) { s in
-                let on = (shell.screen ?? .network) == s
-                Button { shell.screen = s } label: {
-                    VStack(spacing: 4) {
-                        Ico(s.icon, size: 20)
-                            .frame(width: 40, height: 40)
-                            .background(on ? Look.active : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(alignment: .topTrailing) {
-                                if let dot = dot(s) {
-                                    Circle().fill(dot).frame(width: 8, height: 8).overlay(Circle().strokeBorder(Look.elevated, lineWidth: 2)).padding(6)
-                                }
-                            }
-                        if !compact { Text(s.rawValue).font(.system(size: 11, weight: .semibold)) }
-                    }
-                    .foregroundStyle(on ? Look.text : Look.text2)
-                    .frame(width: compact ? 52 : 76).padding(.vertical, compact ? 2 : 6)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(s.rawValue)
-                .accessibilityLabel(s.rawValue)
+                SidebarRow(title: s.rawValue, selected: (shell.screen ?? .network) == s, leading: { Ico(s.icon, size: 19) }, trailing: {
+                    if let dot = screenDot(shell, s) { Circle().fill(dot).frame(width: 8, height: 8) }
+                }) { shell.screen = s }
+                .help("\(s.rawValue) (⌘\(s.number))")
             }
-            Spacer()
-            Ico("lock", size: 16).foregroundStyle(Look.text3).padding(8)
-                .help("End-to-end encrypted. Your data is stored only on your own devices.")
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                Ico("lock", size: 14)
+                Text("End-to-end encrypted").font(.system(size: 12))
+            }
+            .foregroundStyle(Look.text3).padding(.horizontal, 10).help(encrypted)
         }
-        .padding(.top, 44).padding(.bottom, 14)
-        .frame(width: compact ? 60 : 84)
-        .frame(maxHeight: .infinity)
-        .background(Look.rail)
-        .overlay(alignment: .trailing) { Rectangle().fill(Look.line).frame(width: 1) }
+        .padding(.horizontal, 12).padding(.top, 52).padding(.bottom, 4)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
+}
 
-    private func dot(_ s: Screen) -> Color? {
-        switch s {
-        case .network where shell.status.devices_total.int > 1: shell.status.devices_online.int > 1 ? Look.ok : Look.text3
-        case .access where !shell.asks.isEmpty || !shell.offers.isEmpty: Look.warn
-        default: nil
+/// The rail: the pages as icons, names as tooltips.
+private struct RailList: View {
+    @Environment(Shell.self) private var shell
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ForEach(Screen.allCases) { s in
+                RailButton(help: "\(s.rawValue) (⌘\(s.number))", selected: (shell.screen ?? .network) == s, mark: {
+                    Ico(s.icon, size: 20).overlay(alignment: .topTrailing) {
+                        if let dot = screenDot(shell, s) {
+                            Circle().fill(dot).frame(width: 8, height: 8).overlay(Circle().strokeBorder(Look.rail, lineWidth: 2)).offset(x: 7, y: -7)
+                        }
+                    }
+                }) { shell.screen = s }
+            }
+            Spacer(minLength: 0)
+            Ico("lock", size: 16).foregroundStyle(Look.text3).help(encrypted)
         }
+        .padding(.top, 52).padding(.bottom, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -313,32 +318,4 @@ func size(_ bytes: Int) -> String { ByteCountFormatter.string(fromByteCount: Int
 func copy(_ text: String) {
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
-}
-
-/// A sheet's frame: a title, a line, the content and the buttons at the bottom.
-struct SheetFrame<Content: View, Buttons: View>: View {
-    let title: String
-    var lead: String? = nil
-    var center = false
-    @ViewBuilder var content: Content
-    @ViewBuilder var buttons: Buttons
-
-    var body: some View {
-        VStack(alignment: center ? .center : .leading, spacing: 14) {
-            Text(title).font(.system(size: 22, weight: .semibold)).tracking(-0.44).multilineTextAlignment(center ? .center : .leading)
-            if let lead { Text(lead).font(.system(size: 17)).foregroundStyle(Look.text2).multilineTextAlignment(center ? .center : .leading).fixedSize(horizontal: false, vertical: true) }
-            content
-            HStack(spacing: 10) {
-                buttons
-            }
-            .environment(\.fillButtons, true)
-            .padding(.top, 8)
-        }
-        .padding(28)
-        .frame(width: 460)
-        .background(Look.elevated)
-        .foregroundStyle(Look.text)
-        .buttonStyle(UuobButton(large: true))
-        .toggleStyle(UuobSwitch())
-    }
 }

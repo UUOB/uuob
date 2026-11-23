@@ -172,17 +172,9 @@ private fun Label(text: String) =
 @Composable
 fun NameSheet(current: String, continues: Boolean, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
-  Sheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-    SheetBody {
-      SheetTitle("Your name")
-      Caption("This is how you appear to people you share with.", Modifier.padding(top = 6.dp))
-      Field(name, { name = it }, Modifier.fillMaxWidth().padding(top = 18.dp), placeholder = { Text("e.g. Alex") }, singleLine = true)
-      Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        UTonal(onClick = onClose, Modifier.weight(1f), large = true) { Text("Cancel") }
-        UButton(onClick = { onSave(name) }, Modifier.weight(1f), enabled = name.isNotBlank(), large = true) { Text(if (continues) "Continue" else "Save") }
-      }
-    }
-  }
+  // A first name to continue with is new (Cancel and Add); changing it is Save.
+  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Your name", isNew = continues, canSave = name.isNotBlank(), onCancel = onClose, onSave = { onSave(name) },
+    under = { Caption("How you appear to people you share with") }) {}
 }
 
 /** A code for someone to link with you. The new person in the list is the one who used it. */

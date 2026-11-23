@@ -152,7 +152,7 @@ private fun GraphNode(n: JSONObject, labelWidth: androidx.compose.ui.unit.Dp, se
       "app" -> Tint.apps[n.optInt("tint")]
       "ai" -> Tint.apps[4]
       "person" -> Color.Transparent
-      "bubble" -> MaterialTheme.colorScheme.surfaceContainerHigh
+      "bubble" -> app.uuob.kit.Tokens.surface2
       else -> MaterialTheme.colorScheme.surfaceContainerHighest
     },
     contentColor = when (kind) {

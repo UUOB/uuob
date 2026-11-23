@@ -271,7 +271,7 @@ private fun Disconnect(app: AppGroup, onClose: () -> Unit, onChoose: (delete: Bo
 
 @Composable
 private fun Choice(title: String, text: String, danger: Boolean, onClick: () -> Unit) =
-  Card(onClick = onClick, Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+  Card(onClick = onClick, Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = app.uuob.kit.Tokens.surface2)) {
     Column(Modifier.padding(16.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
       Caption(text)

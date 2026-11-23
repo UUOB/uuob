@@ -53,58 +53,96 @@ fn wait(f: impl FnMut(&Value) -> bool + 'static) {
     WAITING.with(|w| w.borrow_mut().push(Box::new(f)));
 }
 
-fn alert(heading: &str, body: &str) -> adw::AlertDialog {
-    adw::AlertDialog::new(Some(heading), Some(body))
+/// The kit's confirmation: a title, a line, the answers (label, look, id) and
+/// maybe Cancel; `then` gets the id of the one chosen.
+fn ask_sheet(root: &adw::ApplicationWindow, heading: &str, body: &str, answers: &[(&str, &[&str], &str)], cancel: bool, then: impl Fn(&str) + 'static) {
+    uuob_kit_gtk::confirm_sheet(heading, body, answers, cancel, then).present(Some(root));
 }
 
 /// Cancel and one destructive answer; `then` runs on that answer.
 fn confirm(root: &adw::ApplicationWindow, heading: &str, body: &str, action: &str, then: impl Fn() + 'static) {
-    let d = alert(heading, body);
-    d.add_responses(&[("cancel", "Cancel"), ("go", action)]);
-    d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
-    d.set_default_response(Some("cancel"));
-    d.set_close_response("cancel");
-    d.connect_response(None, move |_, r| {
+    ask_sheet(root, heading, body, &[(action, &["danger"], "go")], true, move |r| {
         if r == "go" {
             then()
         }
     });
+}
+
+/// A name in the kit's editor (big at the top, Save or Add below); `then` gets it.
+fn edit_text(root: &adw::ApplicationWindow, placeholder: &str, current: &str, under: &str, is_new: bool, then: impl Fn(String) + 'static) {
+    let entry: Rc<RefCell<Option<gtk::Entry>>> = Rc::default();
+    let sheet = uuob_kit_gtk::edit_sheet(placeholder, current, is_new, {
+        let entry = entry.clone();
+        move || {
+            let Some(text) = entry.borrow().as_ref().map(|e| e.text().to_string()) else { return false };
+            if !not_blank(&text) {
+                return false;
+            }
+            then(text);
+            true
+        }
+    }, None);
+    *entry.borrow_mut() = Some(sheet.title.clone());
+    if !under.is_empty() {
+        sheet.under.append(&gtk::Label::builder().label(under).xalign(0.0).wrap(true).css_classes(["caption-web"]).build());
+    }
+    sheet.save.set_sensitive(not_blank(current));
+    sheet.title.connect_changed({
+        let save = sheet.save.clone();
+        move |e| save.set_sensitive(not_blank(&e.text()))
+    });
+    sheet.dialog.present(Some(root));
+}
+
+/// A code another device shows, typed into a detail card; `then` gets it.
+fn enter_code(root: &adw::ApplicationWindow, title: &str, lead: &str, note: &str, action: &str, then: impl Fn(String) + 'static) {
+    let (d, body) = uuob_kit_gtk::detail_sheet(title, &[]);
+    body.set_spacing(14);
+    body.set_margin_top(6);
+    body.append(&lead_text(lead));
+    let entry = gtk::Entry::builder().placeholder_text("e.g. 42 amber river falcon").css_classes(["field"]).build();
+    body.append(&entry);
+    body.append(&gtk::Label::builder().label(note).xalign(0.0).wrap(true).css_classes(["caption-web"]).build());
+    let row = gtk::Box::builder().halign(gtk::Align::End).margin_top(4).build();
+    let go = uuob_kit_gtk::btn(action, None, &["primary"]);
+    go.set_sensitive(false);
+    row.append(&go);
+    body.append(&row);
+    entry.connect_changed({
+        let go = go.clone();
+        move |e| go.set_sensitive(complete(&e.text()))
+    });
+    let run = {
+        let (d, entry) = (d.clone(), entry.clone());
+        Rc::new(move || {
+            if complete(&entry.text()) {
+                then(entry.text().to_string());
+                d.close();
+            }
+        })
+    };
+    {
+        let r = run.clone();
+        go.connect_clicked(move |_| r());
+        entry.connect_activate(move |_| run());
+    }
     d.present(Some(root));
 }
 
-/// A question with a text field; `then` gets the text.
-fn ask_text(root: &adw::ApplicationWindow, heading: &str, body: &str, placeholder: &str, current: &str, action: &str, valid: fn(&str) -> bool, then: impl Fn(String) + 'static) {
-    let d = alert(heading, body);
-    let entry = gtk::Entry::builder().placeholder_text(placeholder).text(current).activates_default(true).build();
-    d.set_extra_child(Some(&entry));
-    d.add_responses(&[("cancel", "Cancel"), ("go", action)]);
-    d.set_response_appearance("go", adw::ResponseAppearance::Suggested);
-    d.set_default_response(Some("go"));
-    d.set_close_response("cancel");
-    d.set_response_enabled("go", valid(current));
-    entry.connect_changed({
-        let d = d.clone();
-        move |e| d.set_response_enabled("go", valid(&e.text()))
-    });
-    d.connect_response(None, move |_, r| {
-        if r == "go" {
-            then(entry.text().to_string())
-        }
-    });
-    d.present(Some(root));
+/// A grey line under a sheet's title.
+fn lead_text(t: &str) -> gtk::Label {
+    gtk::Label::builder().label(t).xalign(0.0).wrap(true).css_classes(["secondary"]).build()
 }
 
 fn not_blank(s: &str) -> bool {
     !s.trim().is_empty()
 }
 
-/// A dialog with a title bar; `content` is replaced as it goes (a code, then "joined").
+/// The kit's detail card; `body` is replaced as it goes (a code, then "joined").
 fn sheet(root: &adw::ApplicationWindow, title: &str) -> (adw::Dialog, gtk::Box) {
-    let body = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(18).margin_top(12).margin_bottom(24).margin_start(24).margin_end(24).build();
-    let view = adw::ToolbarView::new();
-    view.add_top_bar(&adw::HeaderBar::new());
-    view.set_content(Some(&body));
-    let d = adw::Dialog::builder().title(title).content_width(460).child(&view).build();
+    let (d, body) = uuob_kit_gtk::detail_sheet(title, &[]);
+    body.set_spacing(18);
+    body.set_margin_top(6);
     d.present(Some(root));
     (d, body)
 }
@@ -161,8 +199,13 @@ fn show_code(body: &gtk::Box, invite: &Value, waiting: &str, with_qr: bool) {
 
 fn success(body: &gtk::Box, dialog: &adw::Dialog, title: &str, description: &str) {
     clear(body);
-    body.append(&adw::StatusPage::builder().icon_name("emblem-ok-symbolic").title(title).description(description).build());
-    let done = gtk::Button::builder().label("Done").css_classes(["suggested-action", "pill"]).halign(gtk::Align::Center).build();
+    let state = uuob_kit_gtk::empty_state("check", title, "green", None);
+    state.set_margin_top(18);
+    state.set_margin_bottom(0);
+    body.append(&state);
+    body.append(&gtk::Label::builder().label(description).wrap(true).justify(gtk::Justification::Center).css_classes(["secondary"]).build());
+    let done = uuob_kit_gtk::btn("Done", None, &["primary"]);
+    done.set_halign(gtk::Align::Center);
     let dialog = dialog.clone();
     done.connect_clicked(move |_| {
         dialog.close();
@@ -183,35 +226,36 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
         move |m: &'static str, p: Value, t: Option<String>| sender.input(Msg::Act(m, p, t))
     };
     match what {
-        Open::Add => {
-            let d = alert("What are you adding?", "An app on one of your devices, someone with their own UUOB, or an AI assistant. Each sees only what you allow.");
-            d.add_responses(&[("cancel", "Cancel"), ("app", "An App"), ("person", "A Person"), ("ai", "An AI")]);
-            d.set_close_response("cancel");
-            let sender = sender.clone();
-            d.connect_response(None, move |_, r| match r {
-                "app" => sender.input(Msg::Dialog(Open::AppCode)),
-                "person" => sender.input(Msg::Dialog(Open::PersonHow)),
-                "ai" => sender.input(Msg::Dialog(Open::ConnectAi)),
-                _ => {}
-            });
-            d.present(Some(root));
-        }
-        Open::PersonHow => {
+        // Add: an app, a person (your code or theirs) or an AI, as rows in a detail card.
+        Open::Add | Open::PersonHow => {
             let named = !s(&data.status["network"], "name").is_empty();
-            let d = alert("Add a person", "Link with someone who has their own UUOB. Then share a list or a calendar with them from its app. They see only what you share.");
-            d.add_responses(&[("cancel", "Cancel"), ("enter", "Enter Their Code"), ("show", "Show My Code")]);
-            d.set_response_appearance("show", adw::ResponseAppearance::Suggested);
-            d.set_close_response("cancel");
-            let sender = sender.clone();
-            d.connect_response(None, move |_, r| {
-                let next = match r {
-                    "show" => Open::AddPerson,
-                    "enter" => Open::Meet,
-                    _ => return,
-                };
-                // Linking needs a name for the other person to see.
-                sender.input(Msg::Dialog(if named { next } else { Open::Name(String::new(), Some(Box::new(next))) }));
-            });
+            let (d, body) = uuob_kit_gtk::detail_sheet("Add", &[]);
+            body.set_margin_top(10);
+            let choices: [(&str, &str, Open); 4] = [
+                ("apps", "An app, with a code", Open::AppCode),
+                ("person", "A person: show my code", Open::AddPerson),
+                ("link", "A person: enter their code", Open::Meet),
+                ("ai", "An AI", Open::ConnectAi),
+            ];
+            let n = choices.len();
+            for (i, (glyph, title, next)) in choices.into_iter().enumerate() {
+                let line = gtk::Box::builder().spacing(8).build();
+                line.append(&gtk::Label::builder().label(title).xalign(0.0).hexpand(true).css_classes(["icon-row-title"]).build());
+                line.append(&icon("chevron", 16));
+                let row = uuob_kit_gtk::icon_row(Some(glyph), &line);
+                if i == n - 1 {
+                    row.add_css_class("last");
+                }
+                let b = gtk::Button::builder().child(&row).css_classes(["flat"]).build();
+                let (d, sender) = (d.clone(), sender.clone());
+                let person = matches!(next, Open::AddPerson | Open::Meet);
+                b.connect_clicked(move |_| {
+                    d.close();
+                    // Linking needs a name for the other person to see.
+                    sender.input(Msg::Dialog(if person && !named { Open::Name(String::new(), Some(Box::new(next.clone()))) } else { next.clone() }));
+                });
+                body.append(&b);
+            }
             d.present(Some(root));
         }
         Open::Leave => confirm(root, "Leave this network?", "This device stops syncing with your other devices. Everything already on it stays here.", "Leave",
@@ -228,9 +272,9 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
         }
         Open::RemoveAi(id, name) => confirm(root, &format!("Disconnect “{name}”?"), "Its key stops working immediately on all your devices.", "Disconnect",
             move || act("delete_client", json!({ "id": id }), None)),
-        Open::Rename(current) => ask_text(root, "This device’s name", "", "Name", &current, "Save", not_blank,
+        Open::Rename(current) => edit_text(root, "Device name", &current, "This device, as your other devices see it", false,
             move |name| act("set_device_name", json!({ "name": name }), None)),
-        Open::Name(current, then) => ask_text(root, "Your name", "This is how you appear to people you share with.", "e.g. Alex", &current, if then.is_some() { "Continue" } else { "Save" }, not_blank,
+        Open::Name(current, then) => edit_text(root, "Your name", &current, "How you appear to people you share with", false,
             move |name| {
                 let (sender, then) = (sender.clone(), then.clone());
                 relm4::spawn_local(async move {
@@ -245,8 +289,8 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                     }
                 });
             }),
-        Open::Join => ask_text(root, "Join a network", "On a device that’s already set up, open Network → Add a device and type the code it shows. Anything already on this device is kept and merged into the network.",
-            "e.g. 42 amber river falcon", "", "Join", complete, move |code| {
+        Open::Join => enter_code(root, "Join a network", "On a device that’s already set up, open Network → Add a device.",
+            "What’s on this device is kept and merged in.", "Join", move |code| {
                 let sender = sender.clone();
                 relm4::spawn_local(async move {
                     match call("join", json!({ "code": code })).await {
@@ -256,8 +300,8 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                     sender.input(Msg::Reload);
                 });
             }),
-        Open::Meet => ask_text(root, "Enter a code", "Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see. Your devices and data stay your own.",
-            "e.g. 42 amber river falcon", "", "Link", complete, move |code| {
+        Open::Meet => enter_code(root, "Enter a code", "They choose Access → Add → A person: show my code, and tell you what it says.",
+            "You see only what they share with you.", "Link", move |code| {
                 let sender = sender.clone();
                 relm4::spawn_local(async move {
                     match call("meet", json!({ "code": code })).await {
@@ -268,8 +312,8 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                 });
             }),
         Open::AddDevice => code_sheet(root, sender, "Add a device", "On the other device, open UUOB, choose Join a network and enter this code.", "create_invite", Value::Null, "Waiting for your device…", Joined::Device),
-        Open::AddPerson => code_sheet(root, sender, "Add a person", "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this. This links the two of you; it doesn’t share anything.", "create_person_invite", Value::Null, "Waiting for them…", Joined::Person(data.people.iter().map(|p| s(p, "id").to_string()).collect())),
-        Open::AppCode => code_sheet(root, sender, "Connect with a code", "Type this code into the app. It also works in an app on a device that has no UUOB.", "create_app_code", Value::Null, "Works once.", Joined::Nothing),
+        Open::AddPerson => code_sheet(root, sender, "Add a person", "They choose Access → Add → A person: enter their code, and type this. It links you; nothing is shared yet.", "create_person_invite", Value::Null, "Waiting for them…", Joined::Person(data.people.iter().map(|p| s(p, "id").to_string()).collect())),
+        Open::AppCode => code_sheet(root, sender, "Connect with a code", "Type it into the app. It also works on a device without UUOB.", "create_app_code", Value::Null, "Works once.", Joined::Nothing),
         Open::Export(_, name, containers) => drop(relm4::spawn_local(async move {
             let mut all = serde_json::Map::new();
             for (i, (id, part)) in containers.iter().enumerate() {
@@ -283,20 +327,16 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                 return confirm(root, &format!("Delete all {name} data?"), &format!("{} permanently erased from every device. This can’t be undone.", plural(records, "item is", "items are")), "Delete",
                     move || act("uninstall_app", json!({ "id": id, "delete_data": true }), Some(format!("{name} data deleted on all devices"))));
             }
-            let d = alert(&format!("Disconnect {name}?"), &format!("{name} stops working with your network on all your devices. Keep its {} to connect it again later, or erase them from every device.", plural(records, "item", "items")));
-            d.add_responses(&[("cancel", "Cancel"), ("keep", "Keep the Data"), ("delete", "Delete the Data Too")]);
-            d.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
-            d.set_close_response("cancel");
-            d.connect_response(None, move |_, r| match r {
+            let body = format!("{name} stops working with your network on all your devices. Keep its {} to connect it again later, or erase them from every device.", plural(records, "item", "items"));
+            ask_sheet(root, &format!("Disconnect {name}?"), &body, &[("Keep Data", &[], "keep"), ("Delete Data", &["danger"], "delete")], true, move |r| match r {
                 "keep" => act("uninstall_app", json!({ "id": id, "delete_data": false }), Some(format!("{name} was disconnected; its data is kept"))),
                 "delete" => act("uninstall_app", json!({ "id": id, "delete_data": true }), Some(format!("{name} was disconnected and its data deleted"))),
                 _ => {}
             });
-            d.present(Some(root));
         }
         Open::ConnectAi => {
             let (root2, url) = (root.clone(), data.mcp_url.clone());
-            ask_text(root, "Connect an AI", "Give it a name you’ll recognize. It starts with no access.", "e.g. Claude on my laptop", "", "Create", not_blank, move |name| {
+            edit_text(root, "Name, e.g. Claude on my laptop", "", "An AI. It starts with no access.", true, move |name| {
                 let (sender, root, url) = (sender.clone(), root2.clone(), url.clone());
                 relm4::spawn_local(async move {
                     match call("create_client", json!({ "name": name })).await {
@@ -318,31 +358,22 @@ pub fn open(what: Open, root: &adw::ApplicationWindow, sender: &Sender, data: &D
                 let what = if s(&a, "access") == "write" { "read and change" } else { "read" };
                 (format!("“{}” wants to {what} your {} data", s(&a, "app_name"), s(&a, "container_name")), "You can change this any time in Access.".to_string())
             };
-            let d = alert(&heading, &body);
-            d.add_responses(&[("deny", "Don’t Allow"), ("allow", "Allow")]);
-            d.set_response_appearance("allow", adw::ResponseAppearance::Suggested);
-            d.set_default_response(Some("allow"));
-            d.set_close_response("deny");
             let (id, name) = (s(&a, "id").to_string(), s(&a, "name").to_string());
-            d.connect_response(None, move |_, r| {
+            ask_sheet(root, &heading, &body, &[("Don’t Allow", &[], "deny"), ("Allow", &["primary"], "allow")], false, move |r| {
                 let allow = r == "allow";
                 act("answer", json!({ "id": id, "allow": allow }), (allow && connect).then(|| format!("{name} is connected")));
             });
-            d.present(Some(root));
         }
         Open::Offer(o, p) => {
             let can = if s(&o, "access") == "write" { "You can both change it." } else { "You can view it, but not change it." };
-            let d = alert(&format!("{} shared “{}” with you", s(&p, "name"), s(&o, "name")), &format!("It will appear in {} on all your devices. {can}", s(&o, "app_name")));
-            d.add_responses(&[("later", "Later"), ("decline", "Decline"), ("accept", "Accept")]);
-            d.set_response_appearance("accept", adw::ResponseAppearance::Suggested);
-            d.set_close_response("later");
             let (c, toast) = (s(&o, "container").to_string(), format!("“{}” was added to {}", s(&o, "name"), s(&o, "app_name")));
-            d.connect_response(None, move |_, r| match r {
+            ask_sheet(root, &format!("{} shared “{}” with you", s(&p, "name"), s(&o, "name")), &format!("It will appear in {} on all your devices. {can}", s(&o, "app_name")),
+                // Closing it (Esc) is Later.
+                &[("Decline", &[], "decline"), ("Accept", &["primary"], "accept")], false, move |r| match r {
                 "accept" => act("accept_share", json!({ "container": c }), Some(toast.clone())),
                 "decline" => act("delete_container", json!({ "id": c }), None),
                 _ => {}
             });
-            d.present(Some(root));
         }
     }
 }
@@ -359,7 +390,7 @@ enum Joined {
 #[allow(clippy::too_many_arguments)]
 fn code_sheet(root: &adw::ApplicationWindow, sender: Sender, title: &str, lead: &str, method: &'static str, params: Value, waiting: &str, joined: Joined) {
     let (dialog, body) = sheet(root, title);
-    body.append(&text(lead, &[]));
+    body.append(&lead_text(lead));
     body.append(&spinner("Creating a code…"));
     let code: Rc<RefCell<Option<String>>> = Rc::default();
     let used = Rc::new(std::cell::Cell::new(false));
@@ -381,12 +412,12 @@ fn code_sheet(root: &adw::ApplicationWindow, sender: Sender, title: &str, lead: 
         match call(method, params).await {
             Err(e) => {
                 clear(&body);
-                body.append(&adw::StatusPage::builder().icon_name("dialog-error-symbolic").title("Couldn’t create a code").description(e).build());
+                body.append(&lead_text(&format!("Couldn’t create a code. {e}")));
             }
             Ok(invite) => {
                 *code.borrow_mut() = Some(s(&invite, "code").to_string());
                 clear(&body);
-                body.append(&text(&lead, &[]));
+                body.append(&lead_text(&lead));
                 show_code(&body, &invite, &waiting, !matches!(joined, Joined::Nothing));
                 let (dialog, body) = (dialog.downgrade(), body.downgrade());
                 match joined {
@@ -422,13 +453,13 @@ fn code_sheet(root: &adw::ApplicationWindow, sender: Sender, title: &str, lead: 
 /// "Claude is ready": how to add UUOB to the AI. The key is shown only once.
 fn ai_ready(root: &adw::ApplicationWindow, name: &str, url: &str, token: &str, sender: &Sender) {
     let (_, body) = sheet(root, &format!("“{name}” is ready"));
-    body.append(&text("Add UUOB to your AI with one of these. The key is shown only once. Then choose what it can access on this screen.", &[]));
+    body.append(&lead_text("Add UUOB to your AI with one of these. The key is shown only once. Then choose what it can access."));
     let command = format!("claude mcp add --transport http uuob {url} --header \"Authorization: Bearer {token}\"");
     let config = serde_json::to_string_pretty(&json!({ "mcpServers": { "uuob": { "type": "http", "url": url, "headers": { "Authorization": format!("Bearer {token}") } } } })).unwrap_or_default();
     for (label, snippet, what) in [("Claude Code", command, "Command"), ("Other MCP apps (JSON)", config, "Config")] {
         let head = gtk::Box::builder().spacing(8).build();
         head.append(&gtk::Label::builder().label(label).css_classes(["heading"]).hexpand(true).xalign(0.0).build());
-        let copy = gtk::Button::builder().label("Copy").css_classes(["flat"]).build();
+        let copy = uuob_kit_gtk::btn("Copy", Some("copy"), &["sm"]);
         let (sender, snippet2) = (sender.clone(), snippet.clone());
         copy.connect_clicked(move |_| {
             copy_text(&snippet2);
@@ -473,7 +504,7 @@ fn share_sheet(root: &adw::ApplicationWindow, sender: Sender, ask: Value, data: 
             relm4::spawn_local(async move {
                 let people = call("people", Value::Null).await.unwrap_or_default();
                 clear(&body);
-                body.append(&text(&lead, &["dim-label"]));
+                body.append(&lead_text(&lead));
                 let group = adw::PreferencesGroup::new();
                 for p in people.as_array().into_iter().flatten() {
                     let level = p["sharing"].as_array().into_iter().flatten().find(|x| s(x, "container") == container).map(|x| s(x, "access")).unwrap_or("none").to_string();
@@ -514,7 +545,7 @@ fn share_sheet(root: &adw::ApplicationWindow, sender: Sender, ask: Value, data: 
 /// "Share with someone new": a code that links the person and shares this with them.
 fn someone_new(body: &gtk::Box, container: &str, access: &str, list: Rc<RefCell<Option<Box<dyn Fn()>>>>, invite: Rc<RefCell<Option<String>>>) {
     clear(body);
-    body.append(&text("They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", &[]));
+    body.append(&lead_text("They choose Access → Add → A person: enter their code, and type this."));
     let (b2, c2, l2, i2) = (body.downgrade(), container.to_string(), list.clone(), invite.clone());
     body.append(&choice(&[("read", "Can view"), ("write", "Can edit")], access, move |v| {
         if let Some(b) = b2.upgrade() {
@@ -522,7 +553,8 @@ fn someone_new(body: &gtk::Box, container: &str, access: &str, list: Rc<RefCell<
         }
     }));
     body.append(&spinner("Creating a code…"));
-    let back = gtk::Button::builder().label("Back").css_classes(["pill"]).halign(gtk::Align::Center).build();
+    let back = uuob_kit_gtk::btn("Back", None, &[]);
+    back.set_halign(gtk::Align::Center);
     let (l3, i3) = (list.clone(), invite.clone());
     back.connect_clicked(move |_| {
         if let Some(c) = i3.borrow_mut().take() {

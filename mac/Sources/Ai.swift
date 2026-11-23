@@ -73,9 +73,7 @@ struct ConnectAiSheet: View {
     @Environment(Shell.self) private var shell
     @Environment(\.dismiss) private var dismiss
     let url: String
-    @State private var name = ""
     @State private var created: (name: String, token: String)?
-    @State private var error: String?
 
     var body: some View {
         if let created {
@@ -91,32 +89,18 @@ struct ConnectAiSheet: View {
               }
             }
             """
-            SheetFrame(title: "“\(created.name)” is ready", lead: "Add UUOB to your AI with one of these. The key is shown only once.") {
-                Snippet(label: "Claude Code", text: command) { copy(command); shell.show("Command copied") }
-                Snippet(label: "Other MCP apps (JSON)", text: json) { copy(json); shell.show("Config copied") }
-                Text("Next, choose what it can access on this screen.").font(.callout).foregroundStyle(.secondary)
-            } buttons: {
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            DetailSheet(title: "“\(created.name)” is ready", onClose: { dismiss() }, actions: { EmptyView() }) {
+                SheetLead("Add UUOB to your AI with one of these. The key is shown only once. Then choose what it can access.")
+                VStack(spacing: 16) {
+                    Snippet(label: "Claude Code", text: command) { copy(command); shell.show("Command copied") }
+                    Snippet(label: "Other MCP apps (JSON)", text: json) { copy(json); shell.show("Config copied") }
+                }
+                .padding(.top, 16)
             }
-            .frame(width: 620)
         } else {
-            SheetFrame(title: "Connect an AI", lead: "Give it a name you’ll recognize. It starts with no access.") {
-                TextField("e.g. Claude on my laptop", text: $name).textFieldStyle(UuobField()).onSubmit(create)
-                if let error { Text(error).foregroundStyle(.red) }
-            } buttons: {
-                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create", action: create).keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-    }
-
-    private func create() {
-        Task {
-            do {
+            NameEditor(placeholder: "Name, e.g. Claude on my laptop", under: "An AI. It starts with no access.", isNew: true, saveLabel: "Create") { name in
                 let r = try await Core.call("create_client", ["name": name])
                 created = (name: name, token: r.token.string)
-            } catch {
-                self.error = error.localizedDescription
             }
         }
     }
@@ -130,13 +114,13 @@ private struct Snippet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(label).font(.headline)
+                Text(label).font(.system(size: 15, weight: .semibold))
                 Spacer()
-                Button(action: copy) { HStack(spacing: 6) { Ico("copy", size: 16); Text("Copy") } }.buttonStyle(UuobButton())
+                Button(action: copy) { HStack(spacing: 6) { Ico("copy", size: 16); Text("Copy") } }.buttonStyle(UuobButton(small: true))
             }
             Text(text).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                .background(Look.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
 }

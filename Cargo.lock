@@ -6615,6 +6615,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "uuob-kit-gtk"
+version = "0.1.0"
+dependencies = [
+ "relm4",
+ "serde_json",
+]
+
+[[package]]
 name = "uuob-linux"
 version = "0.1.0"
 dependencies = [
@@ -6622,6 +6630,7 @@ dependencies = [
  "relm4",
  "serde_json",
  "uuob-app",
+ "uuob-kit-gtk",
 ]
 
 [[package]]

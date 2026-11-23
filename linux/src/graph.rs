@@ -92,6 +92,10 @@ pub fn graph(g: &Value, picked: Option<&str>, sender: &ComponentSender<App>) -> 
     }
     let overlay = gtk::Overlay::builder().child(&area).halign(gtk::Align::Center).build();
     overlay.add_overlay(&fixed);
-    let frame = gtk::Frame::builder().child(&overlay).css_classes(["graph"]).build();
+    // Laid out for the width the window had: when it gets narrower, the graph
+    // is cut at the sides until it is laid out again (Msg::Resized), rather
+    // than holding the window wide.
+    let clip = gtk::ScrolledWindow::builder().child(&overlay).hscrollbar_policy(gtk::PolicyType::External).vscrollbar_policy(gtk::PolicyType::Never).propagate_natural_width(true).build();
+    let frame = gtk::Frame::builder().child(&clip).css_classes(["graph"]).build();
     frame.upcast()
 }

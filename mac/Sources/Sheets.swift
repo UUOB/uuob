@@ -128,16 +128,17 @@ struct ShareSheet: View {
                     someoneNew()
                 }, cancel: back)
             case .new:
-                SheetFrame(title: "Share with someone new", lead: "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", center: true) {
-                    Segmented([("read", "Can view"), ("write", "Can edit")], selected: access) { access = $0; newInvite() }
-                    if let invite { CodeView(invite: invite, waiting: "Waiting for them…").padding(.vertical, 8) }
-                    else if let error { Text(error).foregroundStyle(Look.danger) }
-                    else { ProgressView() }
-                } buttons: {
-                    Button("Back") { back() }.keyboardShortcut(.cancelAction)
+                CodeCard(title: "Share with someone new", lead: "They choose Access → Add → A person: enter their code, and type this.", onClose: back) {
+                    VStack(spacing: 18) {
+                        Segmented([("read", "Can view"), ("write", "Can edit")], selected: access) { access = $0; newInvite() }
+                        if let invite { CodeView(invite: invite, waiting: "Waiting for them…") }
+                        else if let error { Text(error).foregroundStyle(Look.danger) }
+                        else { ProgressView() }
+                    }
                 }
             case .people:
-                SheetFrame(title: "Share “\(ask.container_name.string)”", lead: "From \(ask.app_name.string). People you choose get this and nothing else.") {
+                DetailSheet(title: "Share “\(ask.container_name.string)”", onClose: done, actions: { EmptyView() }) {
+                    SheetLead("From \(ask.app_name.string). People you choose get this and nothing else.")
                     VStack(spacing: 0) {
                         ForEach(shell.people) { p in
                             HStack(spacing: 10) {
@@ -160,8 +161,13 @@ struct ShareSheet: View {
                         }
                         .buttonStyle(.plain).foregroundStyle(Look.accent).padding(.vertical, 10)
                     }
-                } buttons: {
-                    Button("Done") { done() }.keyboardShortcut(.defaultAction)
+                    .padding(.top, 12)
+                } footer: {
+                    HStack {
+                        Spacer()
+                        Button("Done") { done() }.buttonStyle(UuobButton(.primary, small: true)).keyboardShortcut(.defaultAction)
+                    }
+                    .padding(.top, 18)
                 }
             }
         }

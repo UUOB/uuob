@@ -19,7 +19,7 @@ struct NetworkView: View {
     }
 
     var body: some View {
-        Page(title: "Network", lead: "Your devices in the middle, each app on the device it runs on, people at the edge.") {
+        Page(title: "Network") {
             GraphView().padding(.top, 14)
             Card("Devices") {
                 ForEach(devices) { d in
@@ -64,12 +64,11 @@ struct NetworkView: View {
         .sheet(isPresented: $adding, onDismiss: { Task { await load() } }) { AddDeviceSheet() }
         .sheet(isPresented: $joining, onDismiss: { Task { await load() } }) { JoinSheet() }
         .sheet(isPresented: $renaming) {
-            TextSheet(title: "This device’s name", text: name) { new in
-                shell.act {
-                    try await Core.call("set_device_name", ["name": new])
-                    await load()
-                    shell.tick += 1
-                }
+            NameEditor(placeholder: "Device name", under: "This device, as your other devices see it", current: name) { new in
+                try await Core.call("set_device_name", ["name": new])
+                renaming = false
+                await load()
+                shell.tick += 1
             }
         }
         .confirm("Remove “\(removing?.name.string ?? "")”?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
@@ -113,7 +112,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Page(title: "Settings", lead: "This Mac, your storage and updates.") {
+        Page(title: "Settings") {
             Card("You") {
                 HStack(spacing: 12) {
                     Avatar(name: me.isEmpty ? "?" : me, mine: true)
@@ -227,17 +226,11 @@ struct AddDeviceSheet: View {
             if let joined {
                 Success(title: "\(joined) joined", text: "Your apps and data are syncing to it now.") { dismiss() }
             } else if let invite {
-                SheetFrame(title: "Add a device", lead: "On the other device, open UUOB, choose Join a network and enter this code.", center: true) {
-                    CodeView(invite: invite, waiting: "Waiting for your device…").padding(.vertical, 8)
-                } buttons: {
-                    Button("Cancel", role: .cancel) { close() }.keyboardShortcut(.cancelAction)
+                CodeCard(title: "Add a device", lead: "On the other device, open UUOB, choose Join a network and enter this code.", onClose: close) {
+                    CodeView(invite: invite, waiting: "Waiting for your device…")
                 }
             } else if let error {
-                SheetFrame(title: "Couldn’t create a code", lead: error) {
-                    EmptyView()
-                } buttons: {
-                    Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
-                }
+                DetailSheet(title: "Couldn’t create a code", onClose: { dismiss() }, actions: { EmptyView() }) { SheetLead(error) }
             } else {
                 HStack { ProgressView().controlSize(.small); Text("Creating a code…") }.padding(40)
             }
@@ -278,37 +271,12 @@ struct Success: View {
 /// Type the code another device shows.
 struct JoinSheet: View {
     @Environment(Shell.self) private var shell
-    @Environment(\.dismiss) private var dismiss
-    @State private var code = ""
-    @State private var busy = false
-    @State private var error: String?
 
     var body: some View {
-        SheetFrame(title: "Join a network", lead: "On a device that’s already set up, open Network → Add a device and type the code it shows.") {
-            TextField("e.g. 42 amber river falcon", text: $code)
-                .textFieldStyle(UuobField()).font(.title3).autocorrectionDisabled()
-                .onSubmit(join)
-            if let error { Text(error).foregroundStyle(.red) }
-            Text("Anything already on this device is kept and merged into the network.").font(.callout).foregroundStyle(.secondary)
-        } buttons: {
-            Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-            Button(busy ? "Linking…" : "Join", action: join).keyboardShortcut(.defaultAction).disabled(busy || !complete(code))
-        }
-    }
-
-    private func join() {
-        guard complete(code), !busy else { return }
-        busy = true
-        error = nil
-        Task {
-            do {
-                try await Core.call("join", ["code": code])
-                shell.show("Linked! Your data will sync in a moment.")
-                dismiss()
-            } catch {
-                self.error = error.localizedDescription
-            }
-            busy = false
+        CodeEntry(title: "Join a network", lead: "On a device that’s already set up, open Network → Add a device.",
+                  note: "What’s on this device is kept and merged in.", action: "Join", busyAction: "Linking…") { code in
+            try await Core.call("join", ["code": code])
+            shell.show("Linked! Your data will sync in a moment.")
         }
     }
 }

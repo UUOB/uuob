@@ -50,6 +50,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -84,7 +87,7 @@ fun Page(title: String, lead: String, top: @Composable () -> Unit, onBack: (() -
       androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
           title, Modifier.weight(1f),
-          style = androidx.compose.ui.text.TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-0.025).em),
+          style = androidx.compose.ui.text.TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-0.025).em),
           color = MaterialTheme.colorScheme.onSurface,
         )
         top()
@@ -154,9 +157,11 @@ fun Scanner(onDone: (String?, String?) -> Unit) {
       ) {
         Text("Point the camera at the QR code", color = Color.White, style = MaterialTheme.typography.titleMedium)
         // A light button on the camera picture, whatever the phone's theme.
-        UuobTheme(dark = false) {
-          UTonal(onClick = { onDone(null, null) }, Modifier.widthIn(max = 320.dp).fillMaxWidth(), large = true) { Text("Cancel") }
-        }
+        Box(
+          Modifier.widthIn(max = 320.dp).fillMaxWidth().height(50.dp).clip(RoundedCornerShape(999.dp)).background(Color.White)
+            .clickable { onDone(null, null) },
+          contentAlignment = Alignment.Center,
+        ) { Text("Cancel", color = Color(0xFF1D1D1F), fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
       }
     }
   }

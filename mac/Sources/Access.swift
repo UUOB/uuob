@@ -11,6 +11,7 @@ struct AccessView: View {
     @State private var path: [String] = []
     @State private var adding: Adding?
     @State private var naming: Adding?
+    @State private var choosing = false
     @State private var url = ""
 
     enum Adding: String, Identifiable {
@@ -35,31 +36,13 @@ struct AccessView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Page(title: "Access", lead: "Everything that can reach your data, and what each one can read or write.") {
-                Menu {
-                    Button("An App…") { adding = .app }
-                    Menu("A Person") {
-                        Button("Show My Code…") { person(.showCode) }
-                        Button("Enter Their Code…") { person(.enterCode) }
-                    }
-                    Button("An AI…") { adding = .ai }
-                } label: {
-                    HStack(spacing: 8) { Ico("plus", size: 18, stroke: 2.2); Text("Add").font(.system(size: 15, weight: .semibold)) }
-                        .foregroundStyle(.white).padding(.horizontal, 18).frame(minHeight: 40).background(Look.accent, in: Capsule())
-                }
-                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                .help("Add an app, a person or an AI")
+            Page(title: "Access") {
+                PlusButton(help: "Add an app, a person or an AI (⌘N or C)") { choosing = true }
             } content: {
                 Segmented([("all", "All"), ("app", "Apps"), ("person", "People"), ("ai", "AI")], selected: show, stretch: true) { show = $0 }
                     .padding(.top, 14)
                 if rows.isEmpty {
-                    VStack(spacing: 8) {
-                        Ico("shield", size: 44, stroke: 1.5).foregroundStyle(Look.text3)
-                        Text("Nothing has access yet").font(.system(size: 17, weight: .semibold))
-                        Text("Install an app that works with UUOB on this Mac and open it: it asks to connect. You can also link with a person or connect an AI with Add.")
-                            .font(.system(size: 15)).foregroundStyle(Look.text2).multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity).padding(.vertical, 64).padding(.horizontal, 24)
+                    EmptyState(icon: "shield", headline: "Nothing has access yet", action: ("Add", { choosing = true }))
                 } else {
                     Card {
                         ForEach(shown, id: \.key.string) { r in
@@ -86,6 +69,17 @@ struct AccessView: View {
             }
         }
         .task(id: shell.tick) { await load() }
+        .task(id: shell.adding) { if shell.adding { shell.adding = false; choosing = true } }
+        .sheet(isPresented: $choosing) {
+            AddChooser { what in
+                choosing = false
+                Task {
+                    // One sheet after the other: let the first close.
+                    try? await Task.sleep(for: .milliseconds(350))
+                    if what == .showCode || what == .enterCode { person(what) } else { adding = what }
+                }
+            }
+        }
         .sheet(item: $adding, onDismiss: { Task { await load() } }) { a in
             switch a {
             case .app: AppCodeSheet()
@@ -108,7 +102,7 @@ struct AccessView: View {
 
 /// One app, person or AI: its tile, name, kind, and what it can do.
 private struct AccessRow: View {
-    @Environment(\.compact) private var compact
+    @Environment(\.uuobCompact) private var compact
     let row: J
     /// "This device", "Pixel 9a": next to the name, or under it in a small window.
     private var place: String? { row.kind.string != "person" && !row["where"].string.isEmpty ? row["where"].string : nil }

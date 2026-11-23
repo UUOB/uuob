@@ -126,31 +126,15 @@ struct PeopleView: View {
 
 /// "Your name": how you appear to people you share with.
 struct NameSheet: View {
-    @Environment(\.dismiss) private var dismiss
     let current: String
     let continues: Bool
     let save: (String) async throws -> Void
     /// What Cancel does, if not closing the sheet.
     var cancel: (() -> Void)? = nil
-    @State private var name = ""
-    @State private var error: String?
 
     var body: some View {
-        SheetFrame(title: "Your name", lead: "This is how you appear to people you share with.") {
-            TextField("e.g. Alex", text: $name).textFieldStyle(UuobField()).font(.title3).onSubmit(submit)
-            if let error { Text(error).foregroundStyle(.red) }
-        } buttons: {
-            Button("Cancel", role: .cancel) { if let cancel { cancel() } else { dismiss() } }.keyboardShortcut(.cancelAction)
-            Button(continues ? "Continue" : "Save", action: submit).keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-        }
-        .onAppear { name = current }
-    }
-
-    private func submit() {
-        Task {
-            do { try await save(name) } catch { self.error = error.localizedDescription }
-        }
+        NameEditor(placeholder: "Your name", under: "How you appear to people you share with", current: current,
+                   saveLabel: continues ? "Continue" : "Save", save: save, cancel: cancel)
     }
 }
 
@@ -172,17 +156,11 @@ struct AddPersonSheet: View {
             if let linked {
                 Success(title: "Linked with \(linked)", text: "Nothing is shared yet. Open a list in Tasks or a calendar in Calendar and choose Share.") { dismiss() }
             } else if let invite {
-                SheetFrame(title: "Add a person", lead: "They open UUOB on their device, go to Access → Add → A person → Enter their code, and type this.", center: true) {
-                    CodeView(invite: invite, waiting: "Waiting for them…").padding(.vertical, 8)
-                    Text("This links the two of you. It doesn’t share anything, and it doesn’t add them to your devices.")
-                        .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                } buttons: {
-                    Button("Cancel", role: .cancel) { close() }.keyboardShortcut(.cancelAction)
+                CodeCard(title: "Add a person", lead: "They choose Access → Add → A person: enter their code, and type this. It links you; nothing is shared yet.", onClose: close) {
+                    CodeView(invite: invite, waiting: "Waiting for them…")
                 }
             } else if let error {
-                SheetFrame(title: "Couldn’t create a code", lead: error) { EmptyView() } buttons: {
-                    Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
-                }
+                DetailSheet(title: "Couldn’t create a code", onClose: { dismiss() }, actions: { EmptyView() }) { SheetLead(error) }
             } else {
                 HStack { ProgressView().controlSize(.small); Text("Creating a code…") }.padding(40)
             }
@@ -202,36 +180,13 @@ struct AddPersonSheet: View {
 /// Type the code someone else shows.
 struct MeetSheet: View {
     @Environment(Shell.self) private var shell
-    @Environment(\.dismiss) private var dismiss
-    @State private var code = ""
-    @State private var busy = false
-    @State private var error: String?
 
     var body: some View {
-        SheetFrame(title: "Enter a code", lead: "Ask the other person to open Access → Add → A person → Show my code in their UUOB (or to share something with someone new), and type the code they see.") {
-            TextField("e.g. 42 amber river falcon", text: $code).textFieldStyle(UuobField()).font(.title3).autocorrectionDisabled().onSubmit(meet)
-            if let error { Text(error).foregroundStyle(.red) }
-            Text("Your devices and data stay your own. You see only what they share with you.").font(.callout).foregroundStyle(.secondary)
-        } buttons: {
-            Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-            Button(busy ? "Linking…" : "Link", action: meet).keyboardShortcut(.defaultAction).disabled(busy || !complete(code))
-        }
-    }
-
-    private func meet() {
-        guard complete(code), !busy else { return }
-        busy = true
-        error = nil
-        Task {
-            do {
-                try await Core.call("meet", ["code": code])
-                await shell.refresh()
-                shell.show("Linked with \(shell.people.last?.name.string ?? "them")")
-                dismiss()
-            } catch {
-                self.error = error.localizedDescription
-            }
-            busy = false
+        CodeEntry(title: "Enter a code", lead: "They choose Access → Add → A person: show my code, and tell you what it says.",
+                  note: "You see only what they share with you.", action: "Link", busyAction: "Linking…") { code in
+            try await Core.call("meet", ["code": code])
+            await shell.refresh()
+            shell.show("Linked with \(shell.people.last?.name.string ?? "them")")
         }
     }
 }
