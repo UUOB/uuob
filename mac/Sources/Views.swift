@@ -137,7 +137,7 @@ private struct UpdatePill: View {
 }
 
 /// The dot on a page's icon: devices online (green) or not, something to answer in Access.
-func screenDot(_ shell: Shell, _ s: Screen) -> Color? {
+@MainActor func screenDot(_ shell: Shell, _ s: Screen) -> Color? {
     switch s {
     case .network where shell.status.devices_total.int > 1: shell.status.devices_online.int > 1 ? Look.ok : Look.text3
     case .access where !shell.asks.isEmpty || !shell.offers.isEmpty: Look.warn
