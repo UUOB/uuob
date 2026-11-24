@@ -89,7 +89,7 @@ private struct GraphNode: View {
         VStack(spacing: 4) {
             Button(action: action) { shape }
                 .buttonStyle(.plain)
-                .tip(kind == "bubble" ? "Open \(node.count.int) \(node.label.string)" : kind == "fold" ? "Fold" : node.label.string)
+                .uuobHint(kind == "bubble" ? "Open \(node.count.int) \(node.label.string)" : kind == "fold" ? "Fold" : node.label.string)
                 .accessibilityLabel(kind == "bubble" ? "Open \(node.count.int) \(node.label.string)" : kind == "fold" ? "Fold" : node.label.string)
             if kind != "fold" {
                 Text(node.label.string)

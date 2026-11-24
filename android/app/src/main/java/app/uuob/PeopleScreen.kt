@@ -173,7 +173,7 @@ private fun Label(text: String) =
 fun NameSheet(current: String, continues: Boolean, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
   // A first name to continue with is new (Cancel and Add); changing it is Save.
-  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Your name", isNew = continues, canSave = name.isNotBlank(), onCancel = onClose, onSave = { onSave(name) },
+  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Your name", isNew = continues, canSave = name.isNotBlank(), dirty = name != current, onCancel = onClose, onSave = { onSave(name) },
     under = { Caption("How you appear to people you share with") }) {}
 }
 

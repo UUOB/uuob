@@ -255,7 +255,7 @@ fun SettingsScreen(shell: Shell, top: @Composable () -> Unit) {
 @Composable
 private fun Rename(current: String, onClose: () -> Unit, onSave: (String) -> Unit) {
   var name by remember { mutableStateOf(current) }
-  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Device name", canSave = name.isNotBlank(), onCancel = onClose, onSave = { onSave(name) },
+  app.uuob.kit.EditSheet(name, { name = it }, placeholder = "Device name", canSave = name.isNotBlank(), dirty = name != current, onCancel = onClose, onSave = { onSave(name) },
     under = { Caption("This device, as your other devices see it") }) {}
 }
 

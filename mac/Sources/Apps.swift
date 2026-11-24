@@ -76,7 +76,7 @@ struct AppsView: View {
                             if !note.isEmpty { Text(note).font(.system(size: 13)).foregroundStyle(Look.text2) }
                         }
                         Spacer()
-                        Button { exportJSON(g) } label: { Ico("copy", size: 18) }.buttonStyle(IconButtonStyle()).tip("Copy as JSON")
+                        Button { exportJSON(g) } label: { Ico("copy", size: 18) }.buttonStyle(IconButtonStyle()).uuobHint("Copy as JSON")
                     }
                     if !g.parts.isEmpty {
                         DisclosureGroup("In \(g.name)") {
@@ -100,7 +100,7 @@ struct AppsView: View {
                                     Text((a.access.string == "write" ? "Read & write" : "Read only") + (owner ? " · owner" : "")).foregroundStyle(.secondary)
                                     if !owner {
                                         Button { revoke(g, a) } label: { Ico("close", size: 16) }
-                                            .buttonStyle(IconButtonStyle()).tip("Remove access")
+                                            .buttonStyle(IconButtonStyle()).uuobHint("Remove access")
                                     }
                                 }
                             }
@@ -115,7 +115,7 @@ struct AppsView: View {
                                         Text(device)
                                         Text("Connected \(copy.value.created_at.date.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(.secondary)
                                         Button { unlink(g, copy.key, device) } label: { Ico("close", size: 16) }
-                                            .buttonStyle(IconButtonStyle()).tip("Disconnect \(g.name) on \(device)")
+                                            .buttonStyle(IconButtonStyle()).uuobHint("Disconnect \(g.name) on \(device)")
                                     }
                                 }
                             }

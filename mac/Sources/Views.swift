@@ -66,9 +66,9 @@ struct ContentView: View {
                 Ico("lock", size: 14)
                 Text("End-to-end encrypted").font(.system(size: 12)).lineLimit(1)
             }
-            .foregroundStyle(Look.text3).padding(.leading, 10).help(encrypted)
+            .foregroundStyle(Look.text3).padding(.leading, 10).uuobHint(encrypted)
         } railFooter: {
-            Ico("lock", size: 16).foregroundStyle(Look.text3).help(encrypted)
+            Ico("lock", size: 16).foregroundStyle(Look.text3).uuobHint(encrypted)
         }
         .background(Look.bg)
         .ignoresSafeArea(.container, edges: .top)
@@ -113,7 +113,7 @@ private struct UpdatePill: View {
             VStack(spacing: 6) {
                 Button(shell.updating ? "Updating…" : shell.updateError != nil ? "Try again" : "Update to \(v)") { shell.installUpdate() }
                     .buttonStyle(Pill()).disabled(shell.updating)
-                    .help("Installs UUOB \(v) and restarts it")
+                    .uuobHint("Installs UUOB \(v) and restarts it")
                 if let e = shell.updateError {
                     Text(e).font(.system(size: 13)).foregroundStyle(Look.danger).multilineTextAlignment(.center)
                         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -166,7 +166,7 @@ private struct SideList: View {
                 SidebarRow(title: s.rawValue, selected: (shell.screen ?? .network) == s, leading: { Ico(s.icon, size: 19) }, trailing: {
                     if let dot = screenDot(shell, s) { Circle().fill(dot).frame(width: 8, height: 8) }
                 }) { shell.screen = s; closePeek() }
-                .help("\(s.rawValue) (⌘\(s.number))")
+                .uuobHint("\(s.rawValue) (⌘\(s.number))")
             }
         }
         .padding(.horizontal, 12).padding(.top, 52)

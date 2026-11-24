@@ -35,7 +35,7 @@ struct AiView: View {
                             .frame(width: 40, height: 40).overlay(Ico("ai", size: 20).foregroundStyle(.white))
                         TwoLines(title: client.value.name.string, detail: "Connected \(client.value.created_at.date.formatted(date: .abbreviated, time: .omitted))")
                         Spacer()
-                        Button(role: .destructive) { removing = client } label: { Ico("trash", size: 18) }.buttonStyle(IconButtonStyle()).tip("Disconnect")
+                        Button(role: .destructive) { removing = client } label: { Ico("trash", size: 18) }.buttonStyle(IconButtonStyle()).uuobHint("Disconnect")
                     }
                     ForEach(apps) { k in
                         Trailing {
