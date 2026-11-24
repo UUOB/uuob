@@ -58,10 +58,12 @@ each_mode() {
   shot access
   hint 946 105 add
   cmd n; shot add; esc
-  for c in "An app, with a code:app-code" "A person: show my code:person-code" "A person: enter their code:meet" "An AI:ai"; do
+  for c in "An app, with a code:app-code" "A person: show my code:person-code" "A person: enter their code:meet"; do
     cmd n; click "${c%:*}" && { sleep 1; shot "${c##*:}"; esc; }
     esc
   done
+  # "An AI" reads as "An Al" to the text finder: its row in the Add card.
+  cmd n; pointer 354 464 left; sleep 1; shot ai; esc; esc
   click "Calendar" && shot app-detail
   quit
   open_on access; esc
@@ -71,9 +73,10 @@ each_mode() {
   # Settings: the page, your name, leaving.
   open_on settings; esc
   shot settings
-  click "Change name" && { shot name; esc; }
+  click "Change name" || pointer 927 226 left
+  shot name; esc
   pointer 620 500 scroll -30; pointer 130 450
-  click "~Leave" && { shot leave; esc; }
+  pointer 900 644 left; sleep 1; shot leave; esc   # its Leave… button, at the page's end
   quit
 }
 

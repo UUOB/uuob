@@ -11,8 +11,9 @@ struct NetworkView: View {
     @State private var adding = false
     @State private var joining = false
     @State private var removing: J?
-    @State private var renaming = false
-    @State private var name = ""
+    /// The device being renamed: the sheet opens with its name (a separate name
+    /// variable set in the same tap could reach the sheet still empty).
+    @State private var renaming: J?
 
     private func load() async {
         if let d = try? await Core.call("devices") { devices = d.array }
@@ -41,7 +42,7 @@ struct NetworkView: View {
                         }
                         Spacer()
                         if d.is_self.bool {
-                            Button { name = d.name.string; renaming = true } label: { Ico("edit", size: 18) }
+                            Button { renaming = d } label: { Ico("edit", size: 18) }
                                 .buttonStyle(IconButtonStyle()).uuobHint("Rename")
                         } else {
                             Button(role: .destructive) { removing = d } label: { Ico("trash", size: 18) }
@@ -63,10 +64,10 @@ struct NetworkView: View {
         .task(id: shell.tick) { await load() }
         .sheet(isPresented: $adding, onDismiss: { Task { await load() } }) { AddDeviceSheet() }
         .sheet(isPresented: $joining, onDismiss: { Task { await load() } }) { JoinSheet() }
-        .sheet(isPresented: $renaming) {
-            NameEditor(placeholder: "Device name", under: "This device, as your other devices see it", current: name) { new in
+        .sheet(item: $renaming) { d in
+            NameEditor(placeholder: "Device name", under: "This device, as your other devices see it", current: d.name.string) { new in
                 try await Core.call("set_device_name", ["name": new])
-                renaming = false
+                renaming = nil
                 await load()
                 shell.tick += 1
             }
