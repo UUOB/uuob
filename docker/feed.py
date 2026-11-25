@@ -48,6 +48,7 @@ def feed(app, name, version, dist):
     token = "uuob" if app == "uuob" else f"uuob-{app}"
     dmg = hashlib.sha256((dist / f"{name}-{version}-mac.dmg").read_bytes()).hexdigest()
     casks = dist / "releases" / "Casks"
+    bundle = "app.uuob" if app == "uuob" else f"app.uuob.{app}"
     casks.mkdir(exist_ok=True)
     (casks / f"{token}.rb").write_text(f'''cask "{token}" do
   version "{version}"
@@ -61,6 +62,9 @@ def feed(app, name, version, dist):
   depends_on arch: :arm64
 
   app "{name}.app"
+
+  # Quit before an upgrade; brew upgrade then reopens it if it was running.
+  uninstall quit: "{bundle}"
 end
 ''')
 
