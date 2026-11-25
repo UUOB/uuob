@@ -1,73 +1,89 @@
 # UUOB
 
-**Your data lives on your devices. Apps just plug in.**
+**The backend that runs on your own devices.**
 
-UUOB (Universal User-Owned Backend) links your own devices, like your Mac, your phone or a home server,
-into one private network. Apps keep their data there instead of on some company's servers.
+UUOB stores your apps' data on your own devices, syncs it between them and the people you share it with, and
+keeps it end-to-end encrypted. Many apps share one UUOB, and each sees only its own data unless you allow more.
 
-**[Get started](docs/setup.md)** · **[Downloads](https://github.com/jachymri/uuob-releases)**
+- **No servers.** Your laptop, phone or home server is the backend. Nothing is kept in anyone's cloud.
+- **One backend, many apps.** Apps plug into your UUOB instead of each running their own. Switch apps and your
+  data stays.
+- **Encrypted end to end.** Only your devices, and people you share with, can read your data. Relays that help
+  devices connect only ever see scrambled bytes.
+- **Default-deny.** Each app sees only its own data. Anything more needs your OK.
+- **Sharing built in.** Share one list or calendar with someone, as view-only or editable.
+- **Made for AI.** Give an assistant exactly the apps you choose, read-only or read and write.
+- **Works offline.** Apps keep working without a connection and catch up later.
+- **Open source** (AGPL-3.0). Runs on Mac, Android and Linux, including servers.
 
-## The problem
+**[Download](https://github.com/jachymri/uuob-releases)** · **[Get started](docs/setup.md)**
 
-Every app today has its own servers and its own account, and it keeps your data in its own cloud. Your
-life ends up scattered across dozens of services. You can't easily move it, and you can't connect it.
-If a service shuts down or changes its rules, your data goes with it.
+## What UUOB stores
 
-Self-hosting fixes that, but it usually means servers, domains, passwords and updates to look after.
+Each app gets one or more **containers**. A container is a single [Automerge](https://automerge.org) document,
+synced and end-to-end encrypted, and it holds exactly two kinds of data:
 
-## What UUOB does differently
+- **Records:** JSON objects grouped into named collections, each with a string id of up to 128 characters.
+  Values are any JSON: strings, numbers, booleans, null, arrays and nested objects. When two devices edit the
+  same record at the same time, the top-level fields merge one by one. A nested object or array is replaced as
+  a whole.
+- **Files:** opaque bytes of any size and type, such as a photo, a video or a PDF, stored with their content
+  type. Each file is encrypted with its own key in 64 KiB pieces and identified by the SHA-256 of its encrypted
+  bytes. An app links a file to its data by keeping the file's id in a record.
 
-- **Your devices are the backend.** Data is stored only on your own devices. No accounts, and nothing is
-  kept in anyone's cloud.
-- **Apps don't own your data.** An app is just a window onto it. Switch to another app and your data
-  stays where it is.
-- **Private by design.** Everything is end-to-end encrypted: only your devices, and people you share
-  something with, can read it. When devices
-  can't reach each other directly, a public relay passes the data along, but it sees only scrambled
-  bytes.
-- **Simple, like a normal app.** No server setup. You link devices by typing a short code like
-  `42-amber-river-falcon`.
-- **Apps work together, with your OK.** Each app sees only its own data. Calendar can show your tasks,
-  but only after you allow it.
+That's the whole storage model. There are no schemas, queries or server-side code, and there's no other data
+type. Permissions work per container: an app reads and writes its own containers, and a container can be shared
+with other people or opened to other apps and AIs only with the user's OK.
 
-## How it works
+## What it's for
+
+| ✅ Good fit | ❌ Not a fit |
+| --- | --- |
+| Data that belongs to the people using the app | One big dataset everyone sees |
+| Used on a few devices, shared with a few people | Social networks, marketplaces, public search |
+| Calendars, tasks, notes, photos, journals, budgets, recipes, a family list, a small team's board | Apps that need code running on a server: payments, sending email, heavy processing |
+
+## For people using apps
 
 1. **Install UUOB** on your devices. It runs quietly in the background.
-2. **Link them** with a code. They now sync directly with each other.
-3. **Add apps.** Each app asks UUOB to connect, you tap *Allow*, and its data appears on all your
-   devices.
+2. **Link them** with a code like `42-amber-river-falcon`.
+3. **Open an app.** It asks to connect, you tap *Allow*, and its data is on all your devices.
 
-You can also **share** a single list or calendar with someone who uses UUOB, and let an **AI assistant**
-see exactly the data you choose, app by app.
+## For people building apps
 
-[Step-by-step setup for Mac, Android, Linux and servers →](docs/setup.md)
+Skip the backend: no server, no database, no accounts, no sync code. Your app talks to UUOB through a small SDK:
 
-## Apps for UUOB
+```js
+import { uuob } from './uuob/ui/uuob.js';
 
-| App | What it is |
-| --- | --- |
-| **[Tasks](https://github.com/UUOB/tasks)** | To-do lists with dates, alerts and sharing |
-| **[Calendar](https://github.com/UUOB/calendar)** | Your calendars, plus any calendar link you subscribe to (Google, holidays) |
-| **[Photos](https://github.com/UUOB/photos)** | Photos and videos, kept on your devices instead of a cloud |
+uuob.init({ id: 'recipes', name: 'Recipes' });
+const recipes = uuob.collection('recipes');
 
-Their alerts ring on your phones and computers, also while the app is closed: UUOB keeps the time,
-and on Android the alert is the app's own notification. On Android, Calendar has an **Up next** widget
-with today and tomorrow.
+await recipes.put({ id: 'pancakes', title: 'Pancakes', serves: 4 });
+recipes.subscribe((all) => render(all));  // also fires for changes made on other devices
+```
 
-## Runs on
+- **Records and files:** `put / get / delete / list / subscribe`, plus files of any size.
+- **Sharing:** keep a list in a container of its own, and the user can share it.
+- **Start from a template:** copy [Tasks](https://github.com/UUOB/tasks), [Calendar](https://github.com/UUOB/calendar)
+  or [Photos](https://github.com/UUOB/photos).
+- **The catch:** your users need UUOB too.
 
-- **Mac** (Apple silicon and Intel, macOS 14 or newer)
-- **Android** phones
-- **Linux**, including servers (it runs without a window)
+[Developer docs →](docs/developers.md)
+
+## Why I built this
+
+I wanted an AI to look after my calendar, tasks and mail together. But my calendar was split between Apple on
+my Mac and Google on my phone. Moving to GrapheneOS made it messier, and Nextcloud freed the data but only
+worked with apps I didn't want to use. So I wanted one backend I own, which any app I like can plug into, and
+so can any AI I trust.
 
 ## Learn more
 
-- [The idea behind UUOB](docs/idea.md): why the relationship between apps and your data should be the
-  other way round.
-- [For developers](docs/developers.md): how it works inside, building it, and making your own app.
+- [The idea behind UUOB](docs/idea.md): why apps should plug into your data, not own it
+- [Setup](docs/setup.md): Mac, Android, Linux and servers
+- [For developers](docs/developers.md): how it works inside, written for agents too
 
 ## License
 
-[GNU Affero General Public License, version 3 or later](LICENSE). You may use, change and share UUOB and
-these apps; if you distribute a changed version or run one as a service for others, you publish your
-source under the same license.
+[AGPL-3.0 or later](LICENSE)
