@@ -46,6 +46,10 @@ git fetch -q origin
 branch=$(git rev-parse --abbrev-ref HEAD) head=$(git rev-parse HEAD)
 [ "$head" = "$(git rev-parse "origin/$branch" 2>/dev/null)" ] || { echo "Push $branch first: the Mac build runs on GitHub."; exit 1; }
 ! gh release view "$tag" --repo "$REPO" >/dev/null 2>&1 || { echo "$tag is already published: raise the version."; exit 1; }
+# Android's tools quietly make a new signing key when it is missing, and an app signed with
+# another key can't update the installed one: without the keys, nothing goes out.
+"$HERE/android.sh" test -f /root/.android/debug.keystore -a -f /root/.android/uuob-update.key \
+  || { echo "The release keys are missing from the uuob-android-keys volume: restore them with $D/keys.sh restore."; exit 1; }
 
 # UUOB_MAC_RUN (optional): take the Mac app from that finished or running
 # GitHub run instead of starting one, e.g. when publishing again after a failure.

@@ -2,7 +2,8 @@
 //!
 //! - `GET  /api`          → `{ "uuob": version, "device": name, "remote": bool }`
 //!   (is UUOB here? `remote`: on another device, through the tunnel);
-//!   `?prove=<nonce>` adds `proof`, see [`crate::proof`]
+//!   `?prove=<nonce>` adds `proof`, see [`crate::proof`], and `owner_proof`,
+//!   see `Node::owner_proof`
 //! - `POST /api/connect`  `{ app, name, code? }` → `{ token }`. Without a code
 //!   UUOB asks the user, and the request waits for the answer.
 //! - `POST /api/call`     `{ method, params }` + bearer token → `{ result }`
@@ -36,8 +37,13 @@ use crate::{Linked, bearer, client};
 /// tunnel. `?prove=<nonce>` adds `proof` (see [`crate::proof`]), only here.
 pub(crate) async fn hello(State(node): State<Node>, linked: Option<Extension<Linked>>, Query(q): Query<Hello>) -> Json<Value> {
     let mut hello = json!({ "uuob": env!("CARGO_PKG_VERSION"), "device": node.status().device_name, "remote": linked.is_some() });
-    if let Some(proof) = q.prove.filter(|_| linked.is_none()).and_then(|n| crate::proof(&n)) {
+    let nonce = q.prove.filter(|n| linked.is_none() && !n.is_empty() && n.len() <= 128);
+    if let Some(proof) = nonce.as_deref().and_then(crate::proof) {
         hello["proof"] = proof.into();
+    }
+    // For the `uuob` command, which holds the owner key (see `Node::owner_proof`).
+    if let Some(proof) = nonce.as_deref().and_then(|n| node.owner_proof(n)) {
+        hello["owner_proof"] = proof.into();
     }
     Json(hello)
 }

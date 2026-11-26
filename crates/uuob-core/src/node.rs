@@ -1114,6 +1114,14 @@ impl Node {
         }
     }
 
+    /// An answer to `nonce` that only whoever holds the owner key can check,
+    /// so the `uuob` command knows it reached this UUOB before it sends the
+    /// key: another program could have taken UUOB's port. `None` without one.
+    pub fn owner_proof(&self, nonce: &str) -> Option<String> {
+        let owner = self.0.owner.as_deref()?;
+        Some(crypto::sha256_hex(format!("{owner}:{nonce}").as_bytes()))
+    }
+
     /// Resolve a bearer token to a client.
     pub fn authenticate(&self, token: &str) -> Option<Client> {
         self.authenticate_from(token, None)

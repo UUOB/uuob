@@ -183,6 +183,8 @@ impl Node {
             let mut invites = self.0.invites.lock().unwrap();
             let good = invites.get(&code).is_some_and(|i| matches!(i.kind, Kind::App) && i.expires_at >= now_ms());
             if good {
+                // Typos count only until a code is right, not forever.
+                self.0.app_code_failures.store(0, std::sync::atomic::Ordering::Relaxed);
                 invites.remove(&code)
             } else {
                 // Too many wrong guesses cancel every open app code.

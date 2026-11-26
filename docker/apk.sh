@@ -9,13 +9,15 @@
 # checks it before installing; see crates/uuob-update).
 set -euo pipefail
 arch=${1:-aarch64} dir=app
+# Everything this (run as root) wrote goes back to the user, also when a step fails.
+trap 'chown -R 1000:1000 dist "$dir" "$(dirname "$0")/../crates/uuob-update" node_modules 2>/dev/null || true' EXIT
 tools=$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)
 
 if [ -x android/build.sh ]; then
   # A native app (UUOB's own, in android/): its own build, then the same signing below.
-  name=$(sed -n 's/^rootProject.name = "\(.*\)"/\1/p' android/settings.gradle.kts)
+  dir=android name=$(sed -n 's/^rootProject.name = "\(.*\)"/\1/p' android/settings.gradle.kts)
   android/build.sh "$arch"
-  built=android/app/build/outputs/apk/release/app-release-unsigned.apk dir=android
+  built=android/app/build/outputs/apk/release/app-release-unsigned.apk
 else
 name=$(python3 -c 'import json; print(json.load(open("app/src-tauri/tauri.conf.json"))["productName"])')
 
@@ -38,5 +40,4 @@ mkdir -p dist
   --ks-key-alias androiddebugkey --out "$out" /tmp/aligned.apk
 rm -f "$out.idsig"
 npx tauri signer sign -f /root/.android/uuob-update.key -p "" "$out" >/dev/null
-chown -R 1000:1000 dist "$dir" "$(dirname "$0")/../crates/uuob-update" node_modules 2>/dev/null || true
 echo "$out"

@@ -123,8 +123,10 @@ impl Node {
             }
             let added_at = net::person(d, &card.network).map_or_else(now_ms, |p| p.added_at);
             net::set_person(d, &card.network, &Person { name, added_at, removed: false })?;
+            // A device already known as someone else's stays theirs (as in `apply_about`).
             for device in &card.devices {
-                if net::member(d, device).is_none() {
+                let taken = net::person_device(d, device).is_some_and(|pd| pd.person != card.network);
+                if net::member(d, device).is_none() && !taken {
                     net::set_person_device(d, device, &PersonDevice { person: card.network.clone(), removed: false })?;
                 }
             }
@@ -459,5 +461,12 @@ mod tests {
             assert!(net::member(d, &me).is_some_and(|m| !m.removed));
         });
         assert_eq!(node.peer_access(&node.id(), &net::doc_id(&ours, 0)), Some(Access::Write), "this device, not Mallory's");
+
+        // Nor another person's devices, neither when linking nor later.
+        node.add_person(&Card { network: "alice-net".into(), name: "Alice".into(), devices: vec!["alices-phone".into()] }).unwrap();
+        node.add_person(&Card { network: "mallory-net".into(), name: "Mallory".into(), devices: vec!["alices-phone".into()] }).unwrap();
+        let about = About { name: "Mallory".into(), devices: vec![("alices-phone".into(), false)], ..About::default() };
+        node.apply_about("mallory-net", &about).unwrap();
+        node.read_net(|d| assert_eq!(net::person_device(d, "alices-phone").unwrap().person, "alice-net", "Alice's phone stays hers"));
     }
 }

@@ -97,23 +97,37 @@ fn owner_key() -> Result<String> {
 async fn call(method: &str, params: Value) -> Result<Value> {
     let key = owner_key()?;
     let port = port();
+    // Another program may hold UUOB's port: the key goes only to what proves it is our UUOB.
+    let nonce = uuob_core::sha256_hex(&uuob_core::random32());
+    let hello = http(port, &format!("GET /api?prove={nonce} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")).await?;
+    let expected = uuob_core::sha256_hex(format!("{}:{nonce}", uuob_core::sha256_hex(key.as_bytes())).as_bytes());
+    if hello["owner_proof"].as_str() != Some(expected.as_str()) {
+        bail!(
+            "something other than this computer's UUOB answers on port {port} (or an older UUOB, which needs updating), so this command didn't send it your key"
+        );
+    }
     let body = json!({ "method": method, "params": params }).to_string();
-    let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port))
-        .await
-        .map_err(|_| anyhow!("UUOB is not running on this computer. Start it with `uuob run`."))?;
     let request = format!(
         "POST /api/call HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {key}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
-    stream.write_all(request.as_bytes()).await?;
-    let mut response = String::new();
-    stream.read_to_string(&mut response).await?;
-    let json = response.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
-    let reply: Value = serde_json::from_str(json).context("UUOB sent an answer this command does not understand")?;
+    let reply = http(port, &request).await?;
     if let Some(message) = reply["error"]["message"].as_str() {
         bail!("{message}");
     }
     Ok(reply["result"].clone())
+}
+
+/// Send one request to UUOB's port and read the JSON answer.
+async fn http(port: u16, request: &str) -> Result<Value> {
+    let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port))
+        .await
+        .map_err(|_| anyhow!("UUOB is not running on this computer. Start it with `uuob run`."))?;
+    stream.write_all(request.as_bytes()).await?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response).await?;
+    let json = response.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+    serde_json::from_str(json).context("UUOB sent an answer this command does not understand")
 }
 
 async fn command(args: &[String]) -> Result<()> {

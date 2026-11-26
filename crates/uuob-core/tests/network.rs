@@ -1223,6 +1223,24 @@ async fn app_codes_are_only_for_apps() {
     let token = a.connect_app(&manifest("tasks", "Tasks"), Some(&code.to_uppercase().replace('-', " "))).await.unwrap();
     assert_eq!(a.authenticate(&token), Some(tasks()));
     assert!(a.connect_app(&manifest("tasks", "Tasks"), Some(&code)).await.is_err(), "used up");
+
+    // A right code clears the typos before it, so typos spread over time cancel nothing.
+    let a = &a;
+    let wrong = |n: usize| async move {
+        for _ in 0..n {
+            assert!(a.connect_app(&manifest("x", "X"), Some("12-not-the-code")).await.is_err());
+        }
+    };
+    let code = a.create_app_code().await.unwrap().code;
+    wrong(3).await;
+    a.connect_app(&manifest("notes", "Notes"), Some(&code)).await.unwrap();
+    let code = a.create_app_code().await.unwrap().code;
+    wrong(4).await;
+    a.connect_app(&manifest("photos", "Photos"), Some(&code)).await.unwrap();
+    // Guessing: 5 wrong codes in a row cancel every open app code, even the right one.
+    let code = a.create_app_code().await.unwrap().code;
+    wrong(5).await;
+    assert!(a.connect_app(&manifest("music", "Music"), Some(&code)).await.is_err(), "cancelled after 5 wrong codes");
 }
 
 #[tokio::test]

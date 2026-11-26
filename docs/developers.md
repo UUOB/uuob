@@ -203,3 +203,8 @@ F-Droid or the download page). The same release also refreshes a Homebrew tap
 (`Casks/` in that repo) and an F-Droid repo (`docker/fdroid.sh`, on its
 `gh-pages` branch), for people who prefer those.
 
+Losing that volume would end updates for every installed copy, so back it up:
+`docker/keys.sh backup` writes the keys to one passphrase-encrypted file to keep
+off this computer, and `docker/keys.sh restore <file>` puts them back. A release
+refuses to start while the keys are missing.
+

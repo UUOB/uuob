@@ -118,7 +118,8 @@ object Alerts {
         else -> null
       }
       val app = o.optString("app")
-      val rings = (o.opt("alert") as? Number)?.takeIf { timed }?.let { start - it.toLong() * 60_000 }
+      // Minutes before the start, up to a year, as on computers (alerts.rs); anything else rings never.
+      val rings = (o.opt("alert") as? Number)?.toLong()?.takeIf { timed && it in 0L..525_600L }?.let { start - it * 60_000 }
       Item("$app/${o.optString("id")}", app, o.optString("title"), o.optString("body"), o.optString("color"), start, end, timed, rings)
     }.sortedBy { it.start }
   }

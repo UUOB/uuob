@@ -417,6 +417,11 @@ async fn the_owner_key_acts_as_the_user() {
         assert_eq!(s, 401);
     }
 
+    // Before sending the key, the `uuob` command checks the server can prove it holds it.
+    let (_, hello) = http(port, "GET", "/api?prove=n1", "", None).await;
+    let expected = uuob_core::sha256_hex(format!("{}:n1", uuob_core::sha256_hex(key.trim().as_bytes())).as_bytes());
+    assert_eq!(hello["owner_proof"].as_str(), Some(expected.as_str()));
+
     // The key stays the same across restarts.
     node.shutdown().await;
     let node = open().await.unwrap();
